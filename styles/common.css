@@ -1,0 +1,165 @@
+/* 全局样式 */
+body {
+    margin: 0;
+    min-height: 100vh;
+    /* 统一背景样式 - 紫灰米黄渐变 */
+    background: linear-gradient(45deg, 
+        #72749A, /* 深紫灰 */
+        #FFF5DF  /* 浅米黄 */
+    );
+    font-family: Arial, sans-serif;
+    padding: 20px;
+}
+
+/* 玻璃态卡片基础样式 */
+.glass-card {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+/* 标题卡片样式 */
+.title-card {
+    background: rgba(114, 116, 154, 0.3); /* 深紫灰 透明度 */
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 20px;
+    padding: 0 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+    color: #72749A; /* 深紫灰 */
+    display: flex;
+    align-items: center;
+}
+
+.title-card h1 {
+    margin: 0;
+    font-size: 20px;
+    color: #72749A; /* 深紫灰 */
+}
+
+/* 表单元素样式 */
+input, select, button {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid #A5A7C5; /* 中紫灰 */
+    border-radius: 4px;
+    padding: 8px 12px;
+    color: #72749A; /* 深紫灰 */
+    font-size: 14px;
+}
+
+input:focus, select:focus {
+    outline: none;
+    border-color: #8B8DB2; /* 暗紫灰 */
+}
+
+button {
+    background-color: #8B8DB2; /* 暗紫灰 */
+    color: white;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+button:hover {
+    background-color: #72749A; /* 深紫灰 */
+}
+
+/* 标题样式 */
+h1, h2, h3 {
+    color: #72749A; /* 深紫灰 */
+}
+
+h2 {
+    font-size: 16px;
+    margin: 0 0 10px 0;
+}
+
+h3 {
+    font-size: 14px;
+    margin: 10px 0 5px 0;
+}
+
+/* 错误信息样式 */
+.error-message {
+    color: #E6836B; /* 暖橙红 */
+    margin-top: 10px;
+    text-align: center;
+    display: none;
+}
+
+/* 导航按钮容器 */
+.nav-buttons {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    gap: 10px;
+    z-index: 1000;
+}
+
+/* 导航按钮样式 */
+.nav-button {
+    background: rgba(114, 116, 154, 0.2);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    padding: 8px 15px;
+    color: #72749A;
+    text-decoration: none;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+.nav-button:hover {
+    background: rgba(114, 116, 154, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.nav-button.active {
+    background: rgba(114, 116, 154, 0.4);
+    color: white;
+}
+
+/* 顶部导航区域样式 */
+.top-nav-area {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    z-index: 1000;
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* 左侧标题和功能按钮组 */
+.left-nav-group {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+.page-title {
+    color: #72749A;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.function-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+/* 右侧导航按钮组 - 移动现有的nav-buttons样式 */
+.nav-buttons {
+    display: flex;
+    gap: 10px;
+} 

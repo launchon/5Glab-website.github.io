@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>5G NR TBS 计算器</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f7f8;
+        }
+
+        .title {
+            text-align: center;
+            color: #4A5B5C;
+            font-size: 28px;
+            margin-bottom: 40px;
+        }
+
+        .result-panel {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+
+        .result-item {
+            font-size: 20px;
+            color: #4A5B5C;
+            margin: 15px 0;
+        }
+
+        .result-value {
+            display: inline-block;
+            background: #e8f5e9;
+            padding: 5px 15px;
+            border-radius: 4px;
+            color: #2e7d32;
+            font-weight: bold;
+        }
+
+        .input-section {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-top: 20px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+
+        .input-group {
+            margin: 20px 0;
+        }
+
+        .input-label {
+            display: block;
+            margin-bottom: 10px;
+            color: #4A5B5C;
+        }
+
+        .input-field {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-top: 5px;
+        }
+
+        .radio-group {
+            display: flex;
+            gap: 20px;
+            margin-top: 10px;
+        }
+
+        .radio-option {
+            display: flex;
+            align-items: center;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: white;
+        }
+
+        .section-title {
+            color: #666;
+            font-size: 14px;
+            text-transform: uppercase;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1 class="title">5G NR TBS CALCULATOR</h1>
+
+    <div class="result-panel">
+        <div class="result-item">
+            5G NR TBS (Transport block size): <span class="result-value" id="tbs-result">5504</span>
+        </div>
+        <div class="result-item">
+            Calculated Throughput Max (Mbps): <span class="result-value" id="throughput-result">5.504</span>
+        </div>
+    </div>
+
+    <div class="input-section">
+        <h2 class="section-title">输入参数</h2>
+        
+        <div class="input-group">
+            <label class="input-label">
+                Enter the MCS index
+                <input type="range" min="0" max="28" value="17" id="mcs-index">
+                <input type="number" class="input-field" value="17" id="mcs-number">
+            </label>
+        </div>
+
+        <div class="input-group">
+            <label class="input-label">
+                v(μ)Layers (maximum number of MIMO layers)
+                <input type="number" class="input-field" value="1" min="1" max="8" id="mimo-layers">
+            </label>
+        </div>
+
+        <div class="input-group">
+            <label class="input-label">
+                Nprb (Total number of allocated PRBs for the UE)
+                <input type="number" class="input-field" value="15" min="1" max="273" id="nprb">
+            </label>
+        </div>
+
+        <div class="input-group">
+            <label class="input-label">Numerology - Subcarrier Spacing (μ) configuration</label>
+            <div class="radio-group">
+                <label class="radio-option">
+                    <input type="radio" name="subcarrier" value="0" checked> 0: μ:15kHz
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="subcarrier" value="1"> 1: μ:30kHz
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="subcarrier" value="2"> 2: μ:60kHz
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="subcarrier" value="3"> 3: μ:120kHz
+                </label>
+                <label class="radio-option">
+                    <input type="radio" name="subcarrier" value="4"> 4: μ:240kHz
+                </label>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label class="input-label">
+                Select a 5G NR table from 38.214 (depends on DCI, C-RNTI, etc)
+                <select id="nr-table">
+                    <option value="5.1.3.1-1">38.214-Table 5.1.3.1-1</option>
+                </select>
+            </label>
+        </div>
+
+        <div class="input-group">
+            <label class="input-label">
+                Modulation Order Qm
+                <input type="number" class="input-field" value="6" id="modulation-order" readonly>
+            </label>
+        </div>
+
+        <div class="input-group">
+            <label class="input-label">
+                Target code Rate R x [1024]
+                <input type="number" class="input-field" value="438" id="code-rate" readonly>
+            </label>
+        </div>
+    </div>
+
+    <script>
+        // MCS滑块和输入框同步
+        const mcsSlider = document.getElementById('mcs-index');
+        const mcsNumber = document.getElementById('mcs-number');
+
+        mcsSlider.addEventListener('input', function() {
+            mcsNumber.value = this.value;
+            updateResults();
+        });
+
+        mcsNumber.addEventListener('input', function() {
+            mcsSlider.value = this.value;
+            updateResults();
+        });
+
+        // 其他输入框变化时更新结果
+        document.querySelectorAll('input, select').forEach(input => {
+            input.addEventListener('change', updateResults);
+        });
+
+        function updateResults() {
+            // 这里添加TBS计算公式
+            // 临时使用固定值作为示例
+            document.getElementById('tbs-result').textContent = '5504';
+            document.getElementById('throughput-result').textContent = '5.504';
+        }
+    </script>
+</body>
+</html> 

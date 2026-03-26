@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>登录</title>
+    <link rel="stylesheet" href="styles/common.css">
+    <style>
+        .container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+        
+        .login-card {
+            width: 400px;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        /* 这里添加特定于login页面的样式 */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="glass-card login-card">
+            <h2>用户登录</h2>
+            <form id="loginForm" onsubmit="return handleLogin(event)">
+                <div class="form-group">
+                    <label for="username">用户名</label>
+                    <input type="text" id="username" name="username" required>
+                </div>
+                <div class="form-group">
+                    <label for="password">密码</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label for="interface">选择界面</label>
+                    <select id="interface" name="interface" required>
+                        <option value="">请选择要进入的界面</option>
+                        <option value="timeslot">时隙配置界面</option>
+                        <option value="deploy">NB-IoT站点部署</option>
+                        <option value="other2">其他界面2</option>
+                    </select>
+                </div>
+                <button type="submit" class="login-button">登录</button>
+            </form>
+            <div id="errorMessage" class="error-message">用户名或密码错误</div>
+        </div>
+    </div>
+
+    <script>
+        function handleLogin(event) {
+            event.preventDefault();
+            
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const interface = document.getElementById('interface').value;
+            
+            // 这里可以添加实际的用户名和密码验证逻辑
+            if (username === "admin" && password === "123456") {
+                // 根据选择的界面进行跳转
+                switch(interface) {
+                    case 'timeslot':
+                        window.location.href = 'index.html';
+                        break;
+                    case 'deploy':
+                        window.location.href = 'deploy.html';
+                        break;
+                    case 'other1':
+                        // 跳转到其他界面1
+                        alert('跳转到其他界面1');
+                        break;
+                    case 'other2':
+                        // 跳转到其他界面2
+                        alert('跳转到其他界面2');
+                        break;
+                    default:
+                        alert('请选择要进入的界面');
+                        return false;
+                }
+            } else {
+                document.getElementById('errorMessage').style.display = 'block';
+                return false;
+            }
+        }
+    </script>
+</body>
+</html> 
