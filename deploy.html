@@ -1,0 +1,1918 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>NB-IoT站点模拟部署</title>
+    <link rel="stylesheet" href="styles/common.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .header {
+            background: rgba(168, 178, 182, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #4A5B5C;
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+        }
+
+        .header-title {
+            font-size: 18px;
+            color: #4A5B5C;
+        }
+
+        .header-button {
+            color: #4A5B5C;
+            text-decoration: none;
+            padding: 5px 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            transition: all 0.3s ease;
+        }
+
+        .header-button:hover {
+            background: rgba(255, 255, 255, 0.95);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .main-content {
+            margin-top: 70px;
+            display: grid;
+            grid-template-columns: 200px 1fr 400px;
+            gap: 20px;
+            padding: 0 20px;
+        }
+
+        .left-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            height: calc(100vh - 90px);
+            overflow-y: auto;
+        }
+
+        .map-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            position: relative;
+            height: calc(100vh - 90px);
+            overflow: hidden;
+        }
+
+        .map-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            opacity: 0.5;
+        }
+
+        .cell-container {
+            position: absolute;
+            top: 20px;    /* 与map-container的padding对齐 */
+            left: 20px;   /* 与map-container的padding对齐 */
+            width: calc(100% - 40px);  /* 减去左右padding */
+            height: calc(100% - 40px); /* 减去上下padding */
+        }
+
+        .placed-cell {
+            position: absolute;
+            pointer-events: auto;
+        }
+
+        .parameter-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            background: rgba(255, 255, 255, 0.5);
+        }
+
+        .parameter-table th, .parameter-table td {
+            border: 1px solid rgba(189, 195, 199, 0.5);
+            padding: 8px;
+            text-align: left;
+            color: #4A5B5C;
+        }
+
+        .parameter-table th {
+            background: rgba(168, 178, 182, 0.2);
+        }
+
+        .kpi-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .kpi-item {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            color: #8B9DA3;
+            margin: 10px 0;
+        }
+
+        /* .hexagon-cell {
+            width: 60px;
+            height: 52px;
+            background-color: rgba(139, 157, 163, 0.5);
+            /*position: relative;*/
+           /* cursor: move;
+            clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+            margin: 10px;
+            backdrop-filter: blur(5px);
+        } */
+
+        .base-station-container {
+            width: 120px;
+            height: 120px;
+            position: relative;
+            margin: 15px auto;
+            cursor: move;
+        }
+
+        .base-station-container.placed {
+            position: absolute;
+            z-index: 100;
+        }
+
+        .central-point {
+            width: 20px;
+            height: 20px;
+            background-color: #3498db;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+            z-index: 102;
+            cursor: pointer;
+        }
+
+        .central-point:hover {
+            transform: translate(-50%, -50%) scale(1.1);
+            box-shadow: 0 0 15px rgba(52, 152, 219, 0.8);
+        }
+
+        /* .surrounding-hex {
+            width: 60px;
+            height: 52px;
+            background-color: rgba(139, 157, 163, 0.3);
+            position: absolute;
+            clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+            transition: all 0.2s ease;
+        } */
+        .surrounding-hex {
+            width: 60px;
+            height: 52px;
+            background-color: rgba(139, 157, 163, 0.3);
+            position: absolute;
+            clip-path: polygon(25% 0%, 75% 0%, 100% 50%, 75% 100%, 25% 100%, 0% 50%);
+            transition: all 0.2s ease;
+        }
+        
+        .surrounding-hex.hex-1 {
+            top: 10px;
+            left: 30px;
+            transform: rotate(30deg);
+        }
+
+        .surrounding-hex.hex-2 {
+            top: 55px;
+            left: 5px;
+            transform: rotate(150deg);
+        }
+
+        .surrounding-hex.hex-3 {
+            top: 54px;
+            right: 3px;
+            transform: rotate(270deg);
+        }
+
+        .base-station-container:hover .surrounding-hex {
+            background-color: rgba(139, 157, 163, 0.5);
+        }
+
+        /* 修改角度调整器样式 */
+        .angle-adjuster {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            padding: 10px;
+            width: 140px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 100;
+            left: 130px;
+            top: -20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .angle-adjuster .param-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .angle-adjuster label {
+            color: #2c3e50;
+            font-size: 12px;
+            min-width: 50px;
+        }
+
+        .angle-adjuster input[type="number"] {
+            width: 60px;
+            padding: 2px 4px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 12px;
+        }
+
+        /* 恢复原始基站箭头样式 */
+        .direction-arrow {
+            position: absolute;
+            top: 50%;
+            left: 70%;
+            width: 50px;
+            height: 4px;
+            background-color: rgba(231, 76, 60, 0.7);
+            transform-origin: center left;
+            z-index: 101;
+        }
+
+        .direction-arrow::after {
+            content: '';
+            position: absolute;
+            right: -2px;
+            top: -4px;
+            border-left: 10px solid rgba(231, 76, 60, 0.7);
+            border-top: 6px solid transparent;
+            border-bottom: 6px solid transparent;
+        }
+
+        .arrow-1 { transform: translate(-50%, -50%) rotate(30deg); }
+        .arrow-2 { transform: translate(-50%, -50%) rotate(150deg); }
+        .arrow-3 { transform: translate(-50%, -50%) rotate(270deg); }
+
+        .station-count {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            background-color: rgba(255, 255, 255, 0.8);
+            color: #3498db;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .max-limit-message {
+            color: #e74c3c;
+            font-size: 14px;
+            text-align: center;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .station-action-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+        }
+
+        .station-action-button {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: none;
+            color: white;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .clear-all-button {
+            background-color: #e74c3c;
+        }
+
+        .clear-all-button:hover {
+            background-color: #c0392b;
+        }
+
+        .delete-mode-button {
+            background-color: #3498db;
+        }
+
+        .delete-mode-button.active {
+            background-color: #2980b9;
+            box-shadow: 0 0 10px rgba(52, 152, 219, 0.5);
+        }
+
+        .delete-mode-indicator {
+            display: none;
+            color: #e74c3c;
+            font-size: 14px;
+            margin-top: 10px;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .delete-mode-indicator.active {
+            display: block;
+            animation: blink 1.5s infinite;
+        }
+
+        @keyframes blink {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .resource-pool {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            position: relative;
+        }
+
+        h3 {
+            color: #4A5B5C;
+            margin: 10px 0;
+        }
+
+        p {
+            color: #4A5B5C;
+            line-height: 1.5;
+        }
+
+        .deployment-complete-button {
+            background-color: #27ae60; /* Green color */
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .deployment-complete-button:hover {
+             background-color: #2ecc71;
+        }
+
+        .deployment-complete-button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+
+        /* Styles for demand points */
+        .demand-point {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            z-index: 105;
+            box-shadow: 0 0 8px rgba(0, 0, 0, 0.3);
+            cursor: pointer;
+        }
+        .demand-point-red {
+            background-color: #ff4757; /* Red */
+        }
+        .demand-point-green {
+            background-color: #2ed573; /* Green */
+        }
+        .demand-point.resource {
+            position: static; /* Override absolute for resource pool */
+            display: inline-block; /* Allow side-by-side */
+            margin: 10px 5px;
+            cursor: move;
+        }
+        .demand-point.placed {
+             cursor: default;
+        }
+
+        /* Hide demand points in resource initially */
+        #demandPointRedResource,
+        #demandPointGreenResource {
+            display: none;
+        }
+
+        #demandPointResourceContainer {
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        /* 添加需求点表格样式 */
+        .demand-points-table-container {
+            margin-top: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .demand-points-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+            table-layout: fixed;  /* 添加固定表格布局 */
+        }
+
+        .demand-points-table th:nth-child(1),
+        .demand-points-table td:nth-child(1) {
+            width: 15%;  /* 类型列宽度 */
+        }
+
+        .demand-points-table th:nth-child(2),
+        .demand-points-table td:nth-child(2) {
+            width: 15%;  /* 距离列宽度 */
+        }
+
+        .demand-points-table th:nth-child(3),
+        .demand-points-table td:nth-child(3) {
+            width: 30%;  /* 业务类型列宽度 */
+        }
+
+        .demand-points-table th:nth-child(4),
+        .demand-points-table td:nth-child(4) {
+            width: 25%;  /* 业务速率列宽度 */
+        }
+
+        .demand-points-table th:nth-child(5),
+        .demand-points-table td:nth-child(5) {
+            width: 15%;  /* 操作列宽度 */
+        }
+
+        .demand-points-table select {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            background-color: white;  /* 确保选择框背景色 */
+        }
+
+        .demand-points-table input {
+            width: 100%;
+            padding: 6px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            background-color: white;  /* 确保输入框背景色 */
+        }
+
+        .demand-points-table .delete-btn {
+            background-color: #ff4757;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .demand-points-table .delete-btn:hover {
+            background-color: #ff6b81;
+        }
+
+        .right-panel {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+            height: calc(100vh - 90px);
+            overflow-y: auto;
+        }
+
+        /* 确保右侧栏内的内容有正确的背景色 */
+        .right-panel h3 {
+            color: #4A5B5C;
+            margin: 15px 0 10px 0;
+            font-size: 16px;
+        }
+
+        .right-panel .kpi-container {
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .right-panel .demand-points-table-container {
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 15px;
+            padding: 15px;
+        }
+
+        .right-panel .demand-points-table {
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .right-panel .demand-points-table th {
+            background-color: rgba(242, 242, 242, 0.9);
+        }
+
+        .right-panel .demand-points-table td {
+            background-color: rgba(255, 255, 255, 0.9);
+        }
+
+        /* 添加天线配置弹窗样式 */
+        .antenna-config-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            z-index: 1000;
+            width: 400px;
+        }
+
+        .antenna-config-modal h3 {
+            margin-top: 0;
+            color: #2c3e50;
+        }
+
+        .antenna-config-form {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .antenna-config-form label {
+            display: block;
+            margin-bottom: 5px;
+            color: #34495e;
+        }
+
+        .antenna-config-form input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #bdc3c7;
+            border-radius: 4px;
+        }
+
+        .antenna-config-form button {
+            grid-column: span 2;
+            padding: 10px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .antenna-config-form button:hover {
+            background: #2980b9;
+        }
+
+        .angle-adjuster .antenna-diagram {
+            width: 80px;
+            height: 80px;
+            margin: 10px auto;
+            position: relative;
+        }
+
+        .angle-adjuster .antenna-diagram::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 60px;
+            height: 60px;
+            transform: translate(-50%, -50%);
+            background: #f0f0f0;
+            border-radius: 50%;
+        }
+
+        .angle-adjuster .antenna-diagram .sector {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 30px;
+            height: 2px;
+            background: #e74c3c;
+            transform-origin: left center;
+        }
+
+        .angle-adjuster .antenna-diagram .sector::after {
+            content: '';
+            position: absolute;
+            right: -2px;
+            top: -3px;
+            border-left: 6px solid #e74c3c;
+            border-top: 4px solid transparent;
+            border-bottom: 4px solid transparent;
+        }
+
+        .angle-adjuster .sector-1 { transform: translate(-50%, -50%) rotate(0deg); }
+        .angle-adjuster .sector-2 { transform: translate(-50%, -50%) rotate(120deg); }
+        .angle-adjuster .sector-3 { transform: translate(-50%, -50%) rotate(240deg); }
+
+        /* 添加统计弹窗样式 */
+        .stats-modal {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+            z-index: 1000;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .stats-modal h3 {
+            margin-top: 0;
+            color: #2c3e50;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 10px;
+        }
+
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+            background: white;
+        }
+
+        .stats-table th, .stats-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .stats-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+        }
+
+        .close-stats-modal {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #666;
+        }
+
+        .close-stats-modal:hover {
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <!-- 添加统计弹窗HTML结构 -->
+    <div id="statsModal" class="stats-modal">
+        <span class="close-stats-modal" onclick="closeStatsModal()">&times;</span>
+        <h3>SINR统计信息</h3>
+        <table class="stats-table">
+            <tr>
+                <th>最小值</th>
+                <th>最大值</th>
+                <th>平均值</th>
+                <th>中位数</th>
+            </tr>
+            <tr id="statsTableBody">
+            </tr>
+        </table>
+        <h3>SINR CDF曲线</h3>
+        <div id="sinrCdfChart" style="width: 100%; height: 300px;"></div>
+    </div>
+
+    <div class="top-nav-area">
+        <div class="left-nav-group">
+            <span class="page-title">基于容量规划的NB-IoT站点模拟部署</span>
+        </div>
+        <div class="nav-buttons">
+            <a href="index.html" class="nav-button">时隙配置</a>
+            <a href="deploy.html" class="nav-button active">站点部署</a>
+            <a href="login.html" class="nav-button">退出登录</a>
+        </div>
+    </div>
+
+    <div class="main-content">
+        <style>
+            .main-content {
+                margin-top: 80px;  /* 为顶部导航栏留出空间 */
+            }
+        </style>
+        <div class="left-panel">
+            <h3>场景说明</h3>
+            <p>从资源池中拖拽以放置基站，部署完毕后拖拽部署业务需求点，对基站部署方案进行验证。</p>
+
+            <div class="resource-pool">
+                <h3>资源池</h3>
+                <div class="base-station-container" draggable="true" ondragstart="drag(event)">
+                    <div class="surrounding-hex hex-1"></div>
+                    <div class="surrounding-hex hex-2"></div>
+                    <div class="surrounding-hex hex-3"></div>
+                    <div class="direction-arrow arrow-1"></div>
+                    <div class="direction-arrow arrow-2"></div>
+                    <div class="direction-arrow arrow-3"></div>
+                    <div class="central-point"></div>
+                </div>
+                <div class="station-count">0/6</div>
+                <div class="max-limit-message">已达到最大部署数量限制(6个)</div>
+                <div class="station-action-buttons">
+                    <button class="station-action-button clear-all-button" onclick="clearAll()">清除所有</button>
+                    <button class="station-action-button delete-mode-button" onclick="toggleDeleteMode()">删除单个基站</button>
+                </div>
+                <div class="delete-mode-indicator">删除模式已启用 - 点击基站即可删除</div>
+                <button id="deploymentCompleteButton" class="station-action-button deployment-complete-button" style="display: none;" onclick="enterDemandPointMode()">基站部署完毕</button>
+                <button id="demandPointsCompleteButton" class="station-action-button deployment-complete-button" style="display: none;" onclick="analyzeDemandPoints()">业务需求点部署完毕</button>
+                <div id="demandPointResourceContainer" style="margin-top:10px; text-align: center;">
+                    <div id="demandPointRedResource" class="demand-point demand-point-red resource" draggable="true" ondragstart="drag(event)"></div>
+                    <div id="demandPointGreenResource" class="demand-point demand-point-green resource" draggable="true" ondragstart="drag(event)"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="map-container" ondrop="drop(event)" ondragover="allowDrop(event)">
+            <img class="map-image" src="bupt_map.png" alt="北京邮电大学地图">
+            <div class="cell-container"></div>
+        </div>
+
+        <div class="right-panel">
+            <h3>需求点参数</h3>
+            <div class="demand-points-table-container">
+                <table class="demand-points-table">
+                    <thead>
+                        <tr>
+                            <th>类型</th>
+                            <th>距离(m)</th>
+                            <th>业务类型</th>
+                            <th>上行速率(Mbps)</th>
+                            <th>下行速率(Mbps)</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="demandPointsTableBody">
+                    </tbody>
+                </table>
+            </div>
+
+            <h3>业务需求点速率满足性分析</h3>
+            <div id="demandPointsAnalysisResult" style="background:rgba(255,255,255,0.9);border-radius:10px;padding:10px;margin-bottom:20px;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 添加全局变量定义
+        let deleteMode = false;
+        let demandPointPlacementMode = false;
+
+        function allowDrop(ev) {
+            ev.preventDefault();
+        }
+
+        function drag(ev) {
+            const target = ev.target;
+            let dataType = '';
+            let offsetX = 0;
+            let offsetY = 0;
+            let elementId = null;
+
+            if (target.closest('.base-station-container')) {
+                const stationContainer = target.closest('.base-station-container');
+                if (deleteMode || demandPointPlacementMode) {
+                    ev.preventDefault();
+                    return;
+                }
+                dataType = 'base-station';
+                const rect = stationContainer.getBoundingClientRect();
+                offsetX = ev.clientX - rect.left;
+                offsetY = ev.clientY - rect.top;
+                elementId = stationContainer.classList.contains('placed') ? stationContainer.id : null;
+                ev.dataTransfer.setData("original-station-id", elementId || "");
+            } else if (target.classList.contains('demand-point') && target.classList.contains('resource')) {
+                if (!demandPointPlacementMode) {
+                    ev.preventDefault();
+                    return;
+                }
+                dataType = target.id.includes('Red') ? 'demand-point-red' : 'demand-point-green';
+                const rect = target.getBoundingClientRect();
+                offsetX = ev.clientX - rect.left;
+                offsetY = ev.clientY - rect.top;
+            }
+
+            ev.dataTransfer.setData("text", dataType);
+            ev.dataTransfer.setData("offset-x", offsetX.toString());
+            ev.dataTransfer.setData("offset-y", offsetY.toString());
+        }
+
+        function drop(ev) {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getData("text");
+            
+            if (data === "base-station") {
+                if (deleteMode || demandPointPlacementMode) return;
+                
+                const mapContainer = document.querySelector('.map-container');
+                const rect = mapContainer.getBoundingClientRect();
+                const placedStations = document.querySelectorAll('.base-station-container.placed');
+                const originalStationId = ev.dataTransfer.getData("original-station-id");
+                const isMovingPlaced = originalStationId !== "";
+                
+                if (!isMovingPlaced && placedStations.length >= 6) {
+                    alert('已达到最大部署数量(6个)');
+                    return;
+                }
+                
+                const offsetX = parseInt(ev.dataTransfer.getData("offset-x"));
+                const offsetY = parseInt(ev.dataTransfer.getData("offset-y"));
+                
+                // 计算放置位置
+                let x = ev.clientX - rect.left - offsetX;
+                let y = ev.clientY - rect.top - offsetY;
+                
+                // 确保基站不会超出地图边界
+                x = Math.max(0, Math.min(x, rect.width - 120));
+                y = Math.max(0, Math.min(y, rect.height - 120));
+                
+                const cellContainer = document.querySelector('.cell-container');
+                
+                if (isMovingPlaced) {
+                    const originalStation = document.getElementById(originalStationId);
+                    if (originalStation) {
+                        originalStation.style.left = x + 'px';
+                        originalStation.style.top = y + 'px';
+                        updateStationPositionInStorage(originalStationId, x, y);
+                    }
+                } else {
+                    const stationId = `station-${Date.now()}`;
+                    createStationOnMap(x, y, stationId, cellContainer);
+                }
+                updateStationCount();
+            } else if (data === 'demand-point-red' || data === 'demand-point-green') {
+                if (!demandPointPlacementMode) return;
+                
+                const mapContainer = document.querySelector('.map-container');
+                const rect = mapContainer.getBoundingClientRect();
+                const offsetX = parseInt(ev.dataTransfer.getData("offset-x"));
+                const offsetY = parseInt(ev.dataTransfer.getData("offset-y"));
+                
+                let x = ev.clientX - rect.left - offsetX;
+                let y = ev.clientY - rect.top - offsetY;
+                
+                x = Math.max(0, Math.min(x, rect.width - 15));
+                y = Math.max(0, Math.min(y, rect.height - 15));
+                
+                const cellContainer = document.querySelector('.cell-container');
+                createDemandPointOnMap(x, y, data, cellContainer);
+                saveDemandPointData();
+            }
+        }
+
+        // 更新localStorage中基站位置
+        function updateStationPositionInStorage(stationId, x, y) {
+            let stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
+            const stationIndex = stationsConfig.findIndex(s => s.id === stationId);
+            if (stationIndex !== -1) {
+                stationsConfig[stationIndex].position = { x, y };
+                localStorage.setItem('stationsConfig', JSON.stringify(stationsConfig));
+            }
+        }
+
+        // 在地图上创建需求点元素
+        function createDemandPointOnMap(x, y, type, container) {
+            const point = document.createElement('div');
+            point.className = 'demand-point placed';
+            if (type === 'demand-point-red') {
+                point.classList.add('demand-point-red');
+            } else {
+                point.classList.add('demand-point-green');
+            }
+            point.style.left = x + 'px';
+            point.style.top = y + 'px';
+            
+            // 修改ID格式为更简洁的形式
+            const pointCount = document.querySelectorAll('.demand-point.placed').length + 1;
+            const pointType = type === 'demand-point-red' ? 'R' : 'G';
+            point.id = `${pointType}${pointCount}`;
+
+            point.addEventListener('dblclick', function() {
+                if (demandPointPlacementMode) {
+                    this.remove();
+                    saveDemandPointData();
+                    updateDemandPointsTable();
+                }
+            });
+
+            container.appendChild(point);
+            
+            // 更新表格
+            updateDemandPointsTable();
+            
+            return point;
+        }
+
+        // 保存需求点数据到localStorage (示例)
+        function saveDemandPointData() {
+            const demandPoints = [];
+            document.querySelectorAll('.cell-container .demand-point.placed').forEach(dp => {
+                const pointData = JSON.parse(localStorage.getItem('demandPointsData') || '[]')
+                    .find(data => data.id === dp.id) || {};
+                
+                demandPoints.push({
+                    id: dp.id,
+                    type: dp.classList.contains('demand-point-red') ? 'red' : 'green',
+                    x: parseFloat(dp.style.left),
+                    y: parseFloat(dp.style.top),
+                    businessType: pointData.businessType || '',
+                    businessRate: pointData.businessRate || ''
+                });
+            });
+            localStorage.setItem('demandPointsData', JSON.stringify(demandPoints));
+        }
+
+        // 加载已保存的需求点
+        function loadSavedDemandPoints() {
+            const demandPointsData = JSON.parse(localStorage.getItem('demandPointsData') || '[]');
+            if (demandPointsData.length > 0) {
+                const cellContainer = document.querySelector('.cell-container');
+                demandPointsData.forEach(dp => {
+                    const typeClass = dp.type === 'red' ? 'demand-point-red' : 'demand-point-green';
+                    const point = createDemandPointOnMap(dp.x, dp.y, typeClass, cellContainer);
+                    point.id = dp.id;
+                });
+                updateDemandPointsTable();
+            }
+        }
+
+        // 更新基站数量和部署完成按钮状态
+        function updateStationCount() {
+            const placedStations = document.querySelectorAll('.base-station-container.placed');
+            const countElement = document.querySelector('.station-count');
+            const maxLimitMessage = document.querySelector('.max-limit-message');
+            const deploymentCompleteButton = document.getElementById('deploymentCompleteButton');
+            const resourceStation = document.querySelector('.resource-pool .base-station-container');
+            
+            const count = placedStations.length;
+            countElement.textContent = `${count}/6`;
+            
+            if (count >= 6) {
+                maxLimitMessage.style.display = 'block';
+                if (resourceStation) resourceStation.setAttribute('draggable', 'false'); // 禁用资源池拖动
+                if (!demandPointPlacementMode) { // 只有在非需求点模式下才显示完成按钮
+                    deploymentCompleteButton.style.display = 'block';
+                }
+            } else {
+                maxLimitMessage.style.display = 'none';
+                if (resourceStation) resourceStation.setAttribute('draggable', 'true'); // 启用资源池拖动
+                deploymentCompleteButton.style.display = 'none';
+            }
+        }
+
+        // 进入需求点放置模式
+        function enterDemandPointMode() {
+            if (document.querySelectorAll('.base-station-container.placed').length < 6) {
+                alert('请先部署完6个基站！');
+                return;
+            }
+            demandPointPlacementMode = true;
+            alert('基站部署完毕，现在可以从资源池拖动需求点（红/绿圆点）到地图上。');
+
+            // 显示需求点资源
+            document.getElementById('demandPointRedResource').style.display = 'inline-block';
+            document.getElementById('demandPointGreenResource').style.display = 'inline-block';
+            
+            // 隐藏基站资源（可选）
+            // document.querySelector('.resource-pool .base-station-container').style.display = 'none';
+
+            // 禁用基站拖动和删除功能
+            document.querySelectorAll('.base-station-container.placed').forEach(bs => bs.setAttribute('draggable', 'false'));
+            document.querySelector('.delete-mode-button').disabled = true;
+            document.querySelector('.clear-all-button').disabled = false; // 清除按钮仍然可用
+            
+            // 禁用并隐藏部署完成按钮
+            const deploymentCompleteButton = document.getElementById('deploymentCompleteButton');
+            deploymentCompleteButton.disabled = true;
+            deploymentCompleteButton.style.display = 'none'; // 隐藏，因为模式已切换
+
+            // 如果删除模式是激活的，退出删除模式
+            if (deleteMode) {
+                 toggleDeleteMode();
+            }
+
+            document.getElementById('demandPointsCompleteButton').style.display = 'block';
+        }
+
+        // 清除所有内容（基站和需求点）
+        function clearAll() { 
+            const placedStations = document.querySelectorAll('.base-station-container.placed');
+            const placedDemandPoints = document.querySelectorAll('.cell-container .demand-point.placed');
+
+            if (placedStations.length === 0 && placedDemandPoints.length === 0) {
+                alert('当前没有已部署的基站或需求点');
+                return;
+            }
+
+            if (confirm('确定要清除所有已部署的基站和需求点吗？')) {
+                // 清除基站
+                placedStations.forEach(station => station.remove());
+                localStorage.removeItem('stationsConfig');
+
+                // 清除需求点
+                placedDemandPoints.forEach(point => point.remove());
+                localStorage.removeItem('demandPointsData');
+
+                updateStationCount(); // 更新计数（会隐藏完成按钮）
+                resetDeploymentMode(); // 重置模式和按钮状态
+            }
+        }
+
+        // 重置模式和按钮状态
+        function resetDeploymentMode() {
+            demandPointPlacementMode = false;
+            if (deleteMode) { // 如果清空时在删除模式，则退出
+                toggleDeleteMode(); 
+            }
+
+            // 重置资源池显示
+            document.getElementById('demandPointRedResource').style.display = 'none';
+            document.getElementById('demandPointGreenResource').style.display = 'none';
+            const resourceStation = document.querySelector('.resource-pool .base-station-container');
+            if (resourceStation) {
+                resourceStation.style.display = 'block'; // 确保基站资源可见
+                resourceStation.setAttribute('draggable', 'true');
+            }
+
+            // 重置按钮状态
+            const deploymentCompleteButton = document.getElementById('deploymentCompleteButton');
+            deploymentCompleteButton.style.display = 'none';
+            deploymentCompleteButton.style.display = 'none'; // 初始隐藏
+            deploymentCompleteButton.disabled = false;
+
+            document.querySelector('.delete-mode-button').disabled = false;
+            document.querySelector('.clear-all-button').disabled = false;
+
+            // 确保已放置基站可拖动（理论上clearAll后为空）
+            document.querySelectorAll('.base-station-container.placed').forEach(bs => bs.setAttribute('draggable', 'true'));
+
+            document.getElementById('demandPointsCompleteButton').style.display = 'none';
+        }
+
+        // 初始化页面
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSavedStations(); // 加载基站
+            loadSavedDemandPoints(); // 加载需求点
+            updateStationCount(); // 初始化计数和按钮状态
+            resetDeploymentMode(); // 确保初始模式正确
+            checkStationsConfiguration();
+        });
+
+        // 切换删除模式
+        function toggleDeleteMode() {
+            // 不能在需求点模式下进入删除模式
+            if (demandPointPlacementMode) {
+                 alert("请先完成需求点布置或重置后再进行此操作。");
+                 return;
+            }
+            deleteMode = !deleteMode;
+            const deleteButton = document.querySelector('.delete-mode-button');
+            const deleteIndicator = document.querySelector('.delete-mode-indicator');
+            const resourceStation = document.querySelector('.resource-pool .base-station-container');
+            
+            if (deleteMode) {
+                deleteButton.classList.add('active');
+                deleteIndicator.classList.add('active');
+                if (resourceStation) resourceStation.setAttribute('draggable', 'false'); // 删除模式禁止拖动新基站
+            } else {
+                deleteButton.classList.remove('active');
+                deleteIndicator.classList.remove('active');
+                // 只有在未达到上限时才恢复资源池拖动
+                if (document.querySelectorAll('.base-station-container.placed').length < 6) {
+                    if (resourceStation) resourceStation.setAttribute('draggable', 'true');
+                }
+            }
+        }
+
+        // 在地图上创建基站元素
+        function createStationOnMap(x, y, id, container) {
+            // 创建基站容器
+            const stationContainer = document.createElement('div');
+            stationContainer.className = 'base-station-container placed';
+            stationContainer.style.left = x + 'px';
+            stationContainer.style.top = y + 'px';
+            stationContainer.id = id;
+            
+            // 添加三个六边形
+            const hex1 = document.createElement('div');
+            hex1.className = 'surrounding-hex hex-1';
+            stationContainer.appendChild(hex1);
+            
+            const hex2 = document.createElement('div');
+            hex2.className = 'surrounding-hex hex-2';
+            stationContainer.appendChild(hex2);
+            
+            const hex3 = document.createElement('div');
+            hex3.className = 'surrounding-hex hex-3';
+            stationContainer.appendChild(hex3);
+            
+            // 添加方向箭头
+            const arrow1 = document.createElement('div');
+            arrow1.className = 'direction-arrow arrow-1';
+            stationContainer.appendChild(arrow1);
+            
+            const arrow2 = document.createElement('div');
+            arrow2.className = 'direction-arrow arrow-2';
+            stationContainer.appendChild(arrow2);
+            
+            const arrow3 = document.createElement('div');
+            arrow3.className = 'direction-arrow arrow-3';
+            stationContainer.appendChild(arrow3);
+            
+            // 添加中心蓝点
+            const point = document.createElement('div');
+            point.className = 'central-point';
+            point.addEventListener('click', function(e) {
+                if (deleteMode) {
+                    // 删除模式下点击删除基站
+                    stationContainer.remove();
+                    updateStationCount();
+                    e.stopPropagation();
+                } else {
+                    // 直接跳转到时隙配置
+                    navigateToSlotConfig(stationContainer.id, x, y);
+                }
+            });
+            stationContainer.appendChild(point);
+
+            // 添加角度调整器
+            const adjuster = document.createElement('div');
+            adjuster.className = 'angle-adjuster';
+            adjuster.innerHTML = `
+                <div class="param-group">
+                    <label>朝向:</label>
+                    <input type="number" id="aziSector1_${id}" min="0" max="360" value="0">
+                </div>
+                <div class="param-group">
+                    <label>下倾角:</label>
+                    <input type="number" id="tiltSector1_${id}" min="0" max="45" value="0">
+                </div>
+                <div class="param-group">
+                    <label>挂高:</label>
+                    <input type="number" id="antennaHeight_${id}" min="3" max="50" value="20">
+                </div>
+            `;
+            stationContainer.appendChild(adjuster);
+
+            // 获取已保存的配置
+            const stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
+            const stationConfig = stationsConfig.find(s => s.id === id);
+
+            if (stationConfig && stationConfig.antennaConfig) {
+                // 如果已有配置，填充表单
+                adjuster.querySelector(`#aziSector1_${id}`).value = stationConfig.antennaConfig.aziSector1;
+                adjuster.querySelector(`#tiltSector1_${id}`).value = stationConfig.antennaConfig.tiltSector1;
+                adjuster.querySelector(`#antennaHeight_${id}`).value = stationConfig.antennaConfig.height;
+            }
+
+            // 添加参数调整事件
+            const inputs = adjuster.querySelectorAll('input[type="number"]');
+            inputs.forEach(input => {
+                input.addEventListener('change', function(e) {
+                    const aziSector1 = parseInt(adjuster.querySelector(`#aziSector1_${id}`).value) || 0;
+                    const tiltSector1 = parseInt(adjuster.querySelector(`#tiltSector1_${id}`).value) || 0;
+                    const height = parseInt(adjuster.querySelector(`#antennaHeight_${id}`).value) || 20;
+                    
+                    // 更新配置
+                    let stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
+                    let stationConfig = stationsConfig.find(s => s.id === id);
+                    
+                    if (!stationConfig) {
+                        stationConfig = {
+                            id: id,
+                            position: { x, y },
+                            created: new Date().toISOString(),
+                            antennaConfig: {
+                                aziSector1: aziSector1,
+                                aziSector2: (aziSector1 + 120) % 360,
+                                aziSector3: (aziSector1 + 240) % 360,
+                                tiltSector1: tiltSector1,
+                                tiltSector2: tiltSector1,
+                                tiltSector3: tiltSector1,
+                                height: height,
+                                power: 43
+                            }
+                        };
+                        stationsConfig.push(stationConfig);
+                    } else {
+                        if (!stationConfig.antennaConfig) {
+                            stationConfig.antennaConfig = {
+                                power: 43
+                            };
+                        }
+                        stationConfig.antennaConfig.aziSector1 = aziSector1;
+                        stationConfig.antennaConfig.aziSector2 = (aziSector1 + 120) % 360;
+                        stationConfig.antennaConfig.aziSector3 = (aziSector1 + 240) % 360;
+                        stationConfig.antennaConfig.tiltSector1 = tiltSector1;
+                        stationConfig.antennaConfig.tiltSector2 = tiltSector1;
+                        stationConfig.antennaConfig.tiltSector3 = tiltSector1;
+                        stationConfig.antennaConfig.height = height;
+                    }
+                    
+                    localStorage.setItem('stationsConfig', JSON.stringify(stationsConfig));
+                });
+            });
+            
+            // 添加拖动功能
+            stationContainer.draggable = true;
+            stationContainer.ondragstart = function(e) {
+                if (deleteMode) {
+                    e.preventDefault();
+                    return false;
+                }
+                drag(e);
+            };
+            
+            // 添加双击删除功能
+            stationContainer.addEventListener('dblclick', function() {
+                this.remove();
+                updateStationCount();
+            });
+            
+            container.appendChild(stationContainer);
+            return stationContainer;
+        }
+
+        // 路径损耗计算函数 (HATA模型)
+        function getPathLoss(distance, hte, fc) {
+            const hre = 1.5; // 接收天线高度固定为1.5m
+            // HATA模型公式
+            const alpha_hre = 6.87; // 有效天线修正因子
+            return -(69.55 + 26.16 * Math.log10(fc) - 13.82 * Math.log10(hte) - alpha_hre + 
+                    (44.9 - 6.55 * Math.log10(hte)) * Math.log10(distance));
+        }
+
+        // 天线增益计算函数 (ITU M.2412)
+        function getAntennaGain(azimuth, tilt) {
+            // 这里简化实现，实际应该按照ITU M.2412的3 TRX 3D天线增益模型计算
+            // 水平方向图案
+            const azimuthGain = -Math.min(12 * Math.pow(azimuth / 65, 2), 30);
+            // 垂直方向图案
+            const tiltGain = -Math.min(12 * Math.pow((tilt - 90) / 65, 2), 30);
+            // 合成增益
+            return Math.min(azimuthGain + tiltGain, 30);
+        }
+
+        // 计算接收功率
+        function calculateReceivedPower(userX, userY, station) {
+            const config = station.antennaConfig;
+            
+            if (!config) return null;
+
+            const dx = userX - (station.position.x + 60);
+            const dy = userY - (station.position.y + 60);
+            const distance = Math.sqrt(dx * dx + dy * dy) * 10 / 1000; // 转换为km
+            
+            // 计算方位角
+            let azimuth = Math.atan2(dy, dx) * 180 / Math.PI;
+            if (azimuth < 0) azimuth += 360;
+            
+            // 计算仰角
+            const tilt = Math.atan2(config.height - 1.5, distance * 1000) * 180 / Math.PI;
+            
+            // 计算路径损耗
+            const pathLoss = Math.max(getPathLoss(distance, config.height, 1000), 70);
+            
+            // 计算三个扇区的天线增益
+            const gains = [
+                getAntennaGain(Math.abs(azimuth - config.aziSector1), tilt + config.tiltSector1),
+                getAntennaGain(Math.abs(azimuth - config.aziSector2), tilt + config.tiltSector2),
+                getAntennaGain(Math.abs(azimuth - config.aziSector3), tilt + config.tiltSector3)
+            ];
+            
+            // 使用最大增益
+            let maxGain = Math.max(...gains);
+            
+            console.log("maxGain",maxGain);
+            console.log("pathloss",pathLoss);
+            console.log("43 + maxGain - pathLoss",43 + maxGain - pathLoss);
+            
+            // 计算接收功率
+            return 43 + maxGain - pathLoss;  //单位dBm
+            
+        }
+
+        // 跳转到时隙配置页面并传递参数
+        function navigateToSlotConfig(stationId, x, y) {
+            // 获取已有的配置数据
+            let stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
+            
+            // 查找当前基站的配置
+            let stationConfig = stationsConfig.find(station => station.id === stationId);
+            
+            if (!stationConfig) {
+                // 如果是第一次点击，创建基本配置
+                stationConfig = {
+                    id: stationId,
+                    position: { x, y },
+                    created: new Date().toISOString(),
+                    antennaConfig: {
+                        aziSector1: 0,
+                        aziSector2: 120,
+                        aziSector3: 240,
+                        tiltSector1: 0,
+                        tiltSector2: 0,
+                        tiltSector3: 0,
+                        height: 20,
+                        power: 43
+                    }
+                };
+                stationsConfig.push(stationConfig);
+            } else {
+                // 更新位置信息以防基站被移动
+                stationConfig.position = { x, y };
+                // 确保antennaConfig存在
+                if (!stationConfig.antennaConfig) {
+                    stationConfig.antennaConfig = {
+                        aziSector1: 0,
+                        aziSector2: 120,
+                        aziSector3: 240,
+                        tiltSector1: 0,
+                        tiltSector2: 0,
+                        tiltSector3: 0,
+                        height: 20,
+                        power: 43
+                    };
+                }
+            }
+            
+            // 保存更新后的配置列表
+            localStorage.setItem('stationsConfig', JSON.stringify(stationsConfig));
+            
+            // 保存当前选中的基站ID
+            localStorage.setItem('selectedStationId', stationId);
+            
+            // 跳转到时隙配置页面
+            window.location.href = 'index.html';
+        }
+
+        // 加载已保存的基站配置
+        function loadSavedStations() {
+            const stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
+            if (stationsConfig.length > 0) {
+                const cellContainer = document.querySelector('.cell-container');
+                
+                stationsConfig.forEach(station => {
+                    // 只创建不超过最大数量的基站
+                    const placedStations = document.querySelectorAll('.base-station-container.placed');
+                    if (placedStations.length < 6) {
+                        createStationOnMap(station.position.x, station.position.y, station.id, cellContainer);
+                    }
+                });
+                
+                updateStationCount();
+            }
+        }
+
+        // 重置所有内容
+        function resetAll() {
+            if (confirm('确定要重置所有内容吗？')) {
+                clearAll();
+            }
+        }
+
+        // 计算点到点的距离（像素转米）
+        function calculateDistance(x1, y1, x2, y2) {
+            // 假设地图比例尺为1像素=10米
+            const pixelToMeter = 10;
+            const dx = (x2 - x1) * pixelToMeter;
+            const dy = (y2 - y1) * pixelToMeter;
+            return Math.sqrt(dx * dx + dy * dy).toFixed(2);
+        }
+
+        // 更新需求点表格
+        function updateDemandPointsTable() {
+            const tableBody = document.getElementById('demandPointsTableBody');
+            tableBody.innerHTML = '';
+            
+            const demandPoints = document.querySelectorAll('.cell-container .demand-point.placed');
+            const baseStations = document.querySelectorAll('.cell-container .base-station-container.placed');
+            
+            demandPoints.forEach((point, index) => {
+                const row = document.createElement('tr');
+                const pointX = parseFloat(point.style.left);
+                const pointY = parseFloat(point.style.top);
+                
+                // 计算到最近基站的距离
+                let minDistance = Infinity;
+                baseStations.forEach(station => {
+                    const stationX = parseFloat(station.style.left) + 60; // 基站中心点
+                    const stationY = parseFloat(station.style.top) + 60;
+                    const distance = calculateDistance(pointX, pointY, stationX, stationY);
+                    minDistance = Math.min(minDistance, distance);
+                    
+                });
+                minDistance=minDistance*0.03;
+                // 保存minDistance到localStorage
+                let demandPointsData = JSON.parse(localStorage.getItem('demandPointsData') || '[]');
+                const pointIndex = demandPointsData.findIndex(dp => dp.id === point.id);
+                if (pointIndex !== -1) {
+                    demandPointsData[pointIndex].minDistance = minDistance;
+                } else {
+                    demandPointsData.push({
+                        id: point.id,
+                        minDistance: minDistance
+                    });
+                }
+                localStorage.setItem('demandPointsData', JSON.stringify(demandPointsData));
+
+                // 获取已保存的业务类型和速率
+                const pointData = demandPointsData.find(dp => dp.id === point.id) || {};
+
+                row.innerHTML = `
+                    <td>${point.classList.contains('demand-point-red') ? '红点' : '绿点'}</td>
+                    <td>${minDistance}</td>
+                    <td>
+                        <select class="business-type" onchange="updateDemandPointData('${point.id}', 'businessType', this.value)">
+                            <option value="">请选择</option>
+                            <option value="video" ${pointData.businessType === 'video' ? 'selected' : ''}>视频会话（静止）</option>
+                            <option value="voice" ${pointData.businessType === 'voice' ? 'selected' : ''}>视频会话（移动）</option>
+                            <option value="data" ${pointData.businessType === 'data' ? 'selected' : ''}>8k高清视频播放</option>
+                            <option value="video" ${pointData.businessType === 'dataa' ? 'selected' : ''}>4k高清视频播放</option>
+                            <option value="video" ${pointData.businessType === 'desk' ? 'selected' : ''}>云桌面</option>
+                            <option value="video" ${pointData.businessType === 'store' ? 'selected' : ''}>云存储</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="number" class="business-rate-uplink" 
+                               value="${pointData.businessRateUplink || ''}" 
+                               placeholder="上行速率"
+                               onchange="updateDemandPointData('${point.id}', 'businessRateUplink', this.value)">
+                    </td>
+                    <td>
+                        <input type="number" class="business-rate-downlink" 
+                               value="${pointData.businessRateDownlink || ''}" 
+                               placeholder="下行速率"
+                               onchange="updateDemandPointData('${point.id}', 'businessRateDownlink', this.value)">
+                    </td>
+                    <td>
+                        <button class="delete-btn" onclick="deleteDemandPoint('${point.id}')">删除</button>
+                    </td>
+                `;
+                
+                tableBody.appendChild(row);
+            });
+        }
+
+        // 更新需求点数据
+        function updateDemandPointData(pointId, field, value) {
+            let demandPointsData = JSON.parse(localStorage.getItem('demandPointsData') || '[]');
+            const pointIndex = demandPointsData.findIndex(dp => dp.id === pointId);
+            
+            if (pointIndex === -1) {
+                demandPointsData.push({
+                    id: pointId,
+                    [field]: value
+                });
+            } else {
+                demandPointsData[pointIndex][field] = value;
+            }
+            
+            localStorage.setItem('demandPointsData', JSON.stringify(demandPointsData));
+        }
+
+        // 删除需求点
+        function deleteDemandPoint(pointId) {
+            if (confirm('确定要删除这个需求点吗？')) {
+                const point = document.getElementById(pointId);
+                if (point) {
+                    point.remove();
+                    
+                    // 更新存储的数据
+                    let demandPointsData = JSON.parse(localStorage.getItem('demandPointsData') || '[]');
+                    demandPointsData = demandPointsData.filter(dp => dp.id !== pointId);
+                    localStorage.setItem('demandPointsData', JSON.stringify(demandPointsData));
+                    
+                    // 更新表格
+                    updateDemandPointsTable();
+                }
+            }
+        }
+
+        // 添加SINR计算相关函数 单位dB
+        function calculatePathLoss(distance, fc, h_te, h_re) {
+            // Okumura-Hata模型路径损耗计算
+            // fc: 频率(MHz), h_te: 基站天线高度(m), h_re: 接收机天线高度(m), distance: 距离(km)
+            const alpha_hre = 6.87; // 有效天线修正因子
+            return -(69.55 + 26.16 * Math.log10(fc) - 13.82 * Math.log10(h_te) - alpha_hre + 
+                    (44.9 - 6.55 * Math.log10(h_te)) * Math.log10(distance));
+        }
+
+        function getInterferingStationPositions() {
+            // 生成两层干扰小区的位置（18个）
+            const R = 1; // 小区半径1km
+            const positions = [];
+            // 第一层6个
+            for (let i = 0; i < 6; i++) {
+                const angle = i * Math.PI / 3;
+                positions.push({
+                    x: 2 * R * Math.cos(angle),
+                    y: 2 * R * Math.sin(angle)
+                });
+            }
+            // 第二层12个
+            for (let i = 0; i < 12; i++) {
+                const angle = i * Math.PI / 6;
+                const radius = 2 * R * Math.sqrt(3);
+                positions.push({
+                    x: radius * Math.cos(angle),
+                    y: radius * Math.sin(angle)
+                });
+            }
+            return positions;
+        }
+
+        function estimateSINR(userX, userY, stationX, stationY) {
+            try {
+                // 获取基站配置
+                const stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
+                const mainStation = stationsConfig.find(st => 
+                    st.position.x === stationX - 60 && st.position.y === stationY - 60);
+                
+                if (!mainStation || !mainStation.antennaConfig) {
+               
+                    console.error('基站配置未找到');
+                    return 0;
+                }
+
+                // 计算主基站的接收功率 单位dBm
+                const Pr = calculateReceivedPower(userX, userY, mainStation);
+               
+                if (Pr === null) return 0;
+                
+                // 计算干扰基站的总干扰功率
+                const interferingStations = getInterferingStationPositions();
+                let totalInterference = 0;
+                
+                interferingStations.forEach(station => {
+                    // 创建虚拟干扰基站配置
+                    const interferingStation = {
+                        position: {
+                            x: station.x * 1000 + stationX - 60,
+                            y: station.y * 1000 + stationY - 60
+                        },
+                        antennaConfig: { ...mainStation.antennaConfig }
+                    };
+                    
+                    const Pi = calculateReceivedPower(userX, userY, interferingStation);
+                   
+                    if (Pi !== null) {
+                        totalInterference += Math.pow(10, Pi/ 10);
+                    }
+                    
+                });
+                totalInterference=totalInterference*0.001;
+                
+                // 计算SINR (dB)
+                const noise = 1e-12; // 假设噪声功率为-90dBm
+                
+                const SINR = 10 * Math.log10(Math.pow(10, Pr / 10) / (totalInterference + noise));//单位dBm
+                
+
+               
+                console.log("SINRRR",SINR);
+                
+                console.log("Pr_second",Pr);
+                console.log("Math.pow(10, Pr / 10)",Math.pow(10, Pr / 10));
+                console.log("totalInterference",totalInterference);
+                console.log("noise",noise);
+                // 限制SINR的范围
+               
+                return Math.min(Math.max(SINR, -10), 30); // 限制SINR在-10dB到30dB之间
+            } catch (error) {
+                console.error('SINR计算错误:', error);
+                return 0; // 发生错误时返回默认值
+            }
+        }
+
+        async function analyzeDemandPoints() {
+            try {
+                const demandPoints = JSON.parse(localStorage.getItem('demandPointsData') || '[]');
+                const stations = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
+                const stationsnew=document.querySelectorAll('.cell-container .base-station-container.placed');
+                
+                if (demandPoints.length === 0 || stations.length === 0) {
+                    alert('请先部署基站和需求点！');
+                    return;
+                }
+
+                // console.log('基站配置信息：');
+                // stations.forEach((station, index) => {
+                //     console.log(`基站${index + 1}：上行符号数=${station.symbolRatio.uplink}, 下行符号数=${station.symbolRatio.downlink}`);
+                // });
+                
+                let html = '<table style="width:100%;border-collapse:collapse;"><tr><th>需求点</th><th>类型</th><th>距离(km)</th><th>SINR(dB)</th><th>上行需求(Mbps)</th><th>下行需求(Mbps)</th><th>上行可达(Mbps)</th><th>下行可达(Mbps)</th><th>结果</th></tr>';
+                
+                // 串行处理每个需求点
+                const results = [];
+                for (const dp of demandPoints) {
+                    try {
+                        // 从localStorage中获取该需求点的minDistance
+                        const storedPoint = demandPoints.find(p => p.id === dp.id);
+                        const minDist = storedPoint ? storedPoint.minDistance : Infinity;
+                        // console.log(`需求点 ${dp.id} 的 minDistance:`, minDist);
+                        
+                        // 找最近基站
+                        let nearestStation = null;
+                        let minDistance = Infinity;
+                        stations.forEach(st => {
+                            const dist = calculateDistance(dp.x, dp.y, st.position.x + 60, st.position.y + 60);
+                            if (dist < minDistance) {
+                                minDistance = dist;
+                                nearestStation = st;
+                            }
+                        });
+
+                        if (!nearestStation) {
+                            console.error('未找到最近基站');
+                            continue;
+                        }
+
+                        // 计算SINR
+                        console.log(`计算需求点 ${dp.id} 的 SINR:`);
+                        const sinr = estimateSINR(dp.x, dp.y, nearestStation.position.x + 60, nearestStation.position.y + 60);
+                        
+
+                        // 创建并等待上行计算完成
+                        const uplinkResult = await new Promise((resolve) => {
+                            const requestId = `calc_uplink_${Date.now()}_${Math.random()}`;
+                            const calculationRequest = {
+                                sinr: sinr,
+                                requestId: requestId,
+                                status: 'pending',
+                                symbolCount: nearestStation.symbolRatio.uplink
+                            };
+                            
+                            // 使用唯一的key存储请求
+                            const requestKey = `calculationRequest_${requestId}`;
+                            localStorage.setItem(requestKey, JSON.stringify(calculationRequest));
+                            
+                            const iframe = document.createElement('iframe');
+                            iframe.style.display = 'none';
+                            iframe.src = `index.html?mode=calculate&requestKey=${requestKey}`;
+                            document.body.appendChild(iframe);
+                            
+                            const checkResult = () => {
+                                const result = JSON.parse(localStorage.getItem('calculationResult') || '{}');
+                                if (result.requestId === requestId && result.status === 'completed') {
+                                    document.body.removeChild(iframe);
+                                    localStorage.removeItem(requestKey);
+                                    resolve(result);
+                                } else if (result.status === 'error') {
+                                    document.body.removeChild(iframe);
+                                    localStorage.removeItem(requestKey);
+                                    resolve(null);
+                                } else {
+                                    setTimeout(checkResult, 100);
+                                }
+                            };
+                            
+                            checkResult();
+                        });
+
+                        // 创建并等待下行计算完成
+                        const downlinkResult = await new Promise((resolve) => {
+                            const requestId = `calc_downlink_${Date.now()}_${Math.random()}`;
+                            const calculationRequest = {
+                                sinr: sinr,
+                                requestId: requestId,
+                                status: 'pending',
+                                symbolCount: nearestStation.symbolRatio.downlink
+                            };
+                            
+                            // 使用唯一的key存储请求
+                            const requestKey = `calculationRequest_${requestId}`;
+                            localStorage.setItem(requestKey, JSON.stringify(calculationRequest));
+                            
+                            const iframe = document.createElement('iframe');
+                            iframe.style.display = 'none';
+                            iframe.src = `index.html?mode=calculate&requestKey=${requestKey}`;
+                            document.body.appendChild(iframe);
+                            
+                            const checkResult = () => {
+                                const result = JSON.parse(localStorage.getItem('calculationResult') || '{}');
+                                if (result.requestId === requestId && result.status === 'completed') {
+                                    document.body.removeChild(iframe);
+                                    localStorage.removeItem(requestKey);
+                                    resolve(result);
+                                } else if (result.status === 'error') {
+                                    document.body.removeChild(iframe);
+                                    localStorage.removeItem(requestKey);
+                                    resolve(null);
+                                } else {
+                                    setTimeout(checkResult, 100);
+                                }
+                            };
+                            
+                            checkResult();
+                        });
+
+                        if (uplinkResult && downlinkResult) {
+                            results.push({
+                                dp: dp,
+                                minDist: minDist,
+                                sinr: sinr,
+                                achievableRateUplink: uplinkResult.achievableRate,
+                                achievableRateDownlink: downlinkResult.achievableRate
+                            });
+                        }
+                    } catch (error) {
+                        console.error(`处理需求点 ${dp.id} 时出错:`, error);
+                    }
+                }
+
+                // 修改统计信息显示部分
+                const sinrValues = results.map(r => r.sinr);
+                const sinrStats = {
+                    min: Math.min(...sinrValues),
+                    max: Math.max(...sinrValues),
+                    avg: sinrValues.reduce((a, b) => a + b, 0) / sinrValues.length,
+                    median: sinrValues.sort((a, b) => a - b)[Math.floor(sinrValues.length / 2)]
+                };
+
+                // 更新统计表格
+                document.getElementById('statsTableBody').innerHTML = `
+                    <td>${sinrStats.min.toFixed(2)} dB</td>
+                    <td>${sinrStats.max.toFixed(2)} dB</td>
+                    <td>${sinrStats.avg.toFixed(2)} dB</td>
+                    <td>${sinrStats.median.toFixed(2)} dB</td>
+                `;
+
+                // 计算CDF数据
+                const sortedSinr = [...sinrValues].sort((a, b) => a - b);
+                const cdfData = sortedSinr.map((value, index) => ({
+                    sinr: value,
+                    probability: (index + 1) / sortedSinr.length
+                }));
+
+                // 清除旧的图表
+                const chartContainer = document.getElementById('sinrCdfChart');
+                chartContainer.innerHTML = '';
+                const ctx = document.createElement('canvas');
+                chartContainer.appendChild(ctx);
+
+                // 创建新图表
+                new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        datasets: [{
+                            label: 'SINR CDF',
+                            data: cdfData.map(d => ({
+                                x: d.sinr,
+                                y: d.probability * 100
+                            })),
+                            borderColor: 'rgb(75, 192, 192)',
+                            tension: 0.1,
+                            fill: false
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            x: {
+                                type: 'linear',
+                                title: {
+                                    display: true,
+                                    text: 'SINR (dB)'
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true,
+                                    text: 'Cumulative Probability (%)'
+                                },
+                                min: 0,
+                                max: 100
+                            }
+                        },
+                        plugins: {
+                            title: {
+                                display: true,
+                                text: 'SINR Cumulative Distribution Function'
+                            }
+                        }
+                    }
+                });
+
+                // 显示统计弹窗
+                showStatsModal();
+
+                // 更新需求点分析结果表格
+                results.forEach(result => {
+                    const userRateUplink = parseFloat(result.dp.businessRateUplink || 0);
+                    const userRateDownlink = parseFloat(result.dp.businessRateDownlink || 0);
+                    const satisfiedUplink = result.achievableRateUplink >= userRateUplink;
+                    const satisfiedDownlink = result.achievableRateDownlink >= userRateDownlink;
+                    const satisfied = satisfiedUplink && satisfiedDownlink;
+                    
+                    html += `<tr>
+                        <td>${result.dp.id}</td>
+                        <td>${result.dp.type === 'red' ? '高' : '低'}</td>
+                        <td>${(result.minDist/1000).toFixed(3)}</td>
+                        <td>${result.sinr.toFixed(2)}</td>
+                        <td>${userRateUplink}</td>
+                        <td>${userRateDownlink}</td>
+                        <td>${result.achievableRateUplink.toFixed(2)}</td>
+                        <td>${result.achievableRateDownlink.toFixed(2)}</td>
+                        <td>${satisfied ? '<span style="color:green;">满足</span>' : '<span style="color:red;">不满足</span>'}</td>
+                    </tr>`;
+                });
+                
+                html += '</table>';
+                document.getElementById('demandPointsAnalysisResult').innerHTML = html;
+                console.log('分析完成，结果已显示');
+                
+            } catch (error) {
+                console.error('分析需求点时出错:', error);
+                alert('分析过程中出现错误，请检查控制台获取详细信息');
+            }
+        }
+
+        // 添加检查基站配置状态的函数
+        function checkStationsConfiguration() {
+            const stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
+            const placedStations = document.querySelectorAll('.base-station-container.placed');
+            
+            console.log('检查基站配置状态');
+            console.log('已放置基站数量:', placedStations.length);
+            console.log('已配置基站数量:', stationsConfig.length);
+            
+            // 检查是否所有基站都已完成时隙配置
+            const allConfigured = stationsConfig.length === 6 && stationsConfig.every(station => 
+                station.symbolRatio && 
+                station.symbolRatio.uplink !== undefined && 
+                station.symbolRatio.downlink !== undefined &&
+                station.slotConfig && 
+                station.symbolConfig
+            );
+            
+            // 获取部署完毕按钮
+            const deploymentCompleteButton = document.getElementById('deploymentCompleteButton');
+            if (deploymentCompleteButton) {
+                if (allConfigured) {
+                    deploymentCompleteButton.style.display = 'block';
+                    console.log('显示部署完毕按钮 - 所有基站配置完成');
+                } else {
+                    deploymentCompleteButton.style.display = 'none';
+                    console.log('不显示部署完毕按钮 - 配置未完成');
+                }
+            }
+        }
+
+        // 添加storage事件监听，当localStorage变化时重新检查配置状态
+        window.addEventListener('storage', function(e) {
+            if (e.key === 'stationsConfig') {
+                checkStationsConfiguration();
+            }
+        });
+
+        function showStatsModal() {
+            document.getElementById('statsModal').style.display = 'block';
+        }
+
+        function closeStatsModal() {
+            document.getElementById('statsModal').style.display = 'none';
+        }
+
+    </script>
+</body>
+</html> 
