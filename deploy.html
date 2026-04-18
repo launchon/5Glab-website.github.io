@@ -1001,8 +1001,23 @@
 
         // 进入需求点放置模式
         function enterDemandPointMode() {
-            if (document.querySelectorAll('.base-station-container.placed').length < 6) {
+            // 新增：强制所有基站配置完成后才能进入需求点模式
+            const stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
+            const placedStations = document.querySelectorAll('.base-station-container.placed');
+            if (placedStations.length < 6) {
                 alert('请先部署完6个基站！');
+                return;
+            }
+            // 检查所有基站都已配置symbolRatio、slotConfig、symbolConfig
+            const allConfigured = stationsConfig.length === 6 && stationsConfig.every(station => 
+                station.symbolRatio && 
+                station.symbolRatio.uplink !== undefined && 
+                station.symbolRatio.downlink !== undefined &&
+                station.slotConfig && 
+                station.symbolConfig
+            );
+            if (!allConfigured) {
+                alert('请为所有基站完成时隙帧结构配置！');
                 return;
             }
             demandPointPlacementMode = true;
@@ -1011,15 +1026,12 @@
             // 显示需求点资源
             document.getElementById('demandPointRedResource').style.display = 'inline-block';
             document.getElementById('demandPointGreenResource').style.display = 'inline-block';
-            
-            // 隐藏基站资源（可选）
-            // document.querySelector('.resource-pool .base-station-container').style.display = 'none';
 
             // 禁用基站拖动和删除功能
             document.querySelectorAll('.base-station-container.placed').forEach(bs => bs.setAttribute('draggable', 'false'));
             document.querySelector('.delete-mode-button').disabled = true;
             document.querySelector('.clear-all-button').disabled = false; // 清除按钮仍然可用
-            
+
             // 禁用并隐藏部署完成按钮
             const deploymentCompleteButton = document.getElementById('deploymentCompleteButton');
             deploymentCompleteButton.disabled = true;
@@ -1871,11 +1883,7 @@
         function checkStationsConfiguration() {
             const stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
             const placedStations = document.querySelectorAll('.base-station-container.placed');
-            
-            console.log('检查基站配置状态');
-            console.log('已放置基站数量:', placedStations.length);
-            console.log('已配置基站数量:', stationsConfig.length);
-            
+
             // 检查是否所有基站都已完成时隙配置
             const allConfigured = stationsConfig.length === 6 && stationsConfig.every(station => 
                 station.symbolRatio && 
@@ -1884,16 +1892,14 @@
                 station.slotConfig && 
                 station.symbolConfig
             );
-            
+
             // 获取部署完毕按钮
             const deploymentCompleteButton = document.getElementById('deploymentCompleteButton');
             if (deploymentCompleteButton) {
                 if (allConfigured) {
                     deploymentCompleteButton.style.display = 'block';
-                    console.log('显示部署完毕按钮 - 所有基站配置完成');
                 } else {
                     deploymentCompleteButton.style.display = 'none';
-                    console.log('不显示部署完毕按钮 - 配置未完成');
                 }
             }
         }

@@ -214,6 +214,7 @@
     <div class="container">
         <div class="title-card">
             <h1>时隙配置模拟</h1>
+            <span id="currentStationId" style="margin-left:30px;font-size:16px;color:#2c3e50;"></span>
         </div>
 
         <div class="main-content">
@@ -247,11 +248,11 @@
                     </div>
                     <div>
                         <label>上行符号数：</label>
-                        <input type="number" id="uplinkSymbols" min="0" value="0" style="width: 60px;">
+                        <span id="uplinkSymbolsAuto" style="font-weight:bold;color:#27ae60;">0</span>
                     </div>
                     <div>
                         <label>下行符号数：</label>
-                        <input type="number" id="downlinkSymbols" min="0" value="0" style="width: 60px;">
+                        <span id="downlinkSymbolsAuto" style="font-weight:bold;color:#2196F3;">0</span>
                     </div>
                 </div>
             </div>
@@ -271,13 +272,14 @@
             <div class="resource-pool">
                 <div class="block downlink-time" draggable="true" ondragstart="drag(event)" data-type="downlink-time">下行时隙</div>
                 <div class="block uplink-time" draggable="true" ondragstart="drag(event)" data-type="uplink-time">上行时隙</div>
-                <div class="block guard-time" draggable="true" ondragstart="drag(event)" data-type="guard-time">自包含时隙</div>
                 <div class="block downlink-symbol" draggable="true" ondragstart="drag(event)" data-type="downlink-symbol">下行符号</div>
                 <div class="block uplink-symbol" draggable="true" ondragstart="drag(event)" data-type="uplink-symbol">上行符号</div>
                 <div class="block gp-symbol" draggable="true" ondragstart="drag(event)" data-type="gp-symbol">GP符号</div>
             </div>
 
-            <button id="configCompleteButton" class="config-complete-button" onclick="saveAndReturn()">配置完毕</button>
+            <div style="margin-top: 24px; text-align: right;">
+                <button id="configCompleteButton" class="config-complete-button" style="position:static;right:auto;bottom:auto;" onclick="saveAndReturn()">配置完毕</button>
+            </div>
         </div>
 
         <div class="calculator">
@@ -391,16 +393,16 @@
             ev.preventDefault();
             const data = ev.dataTransfer.getData("text");
             const timeline = ev.target;
-            
+
             if (timeline.classList.contains('timeline')) {
                 // 检查是否是合法的拖放组合
                 const isSlotTimeline = timeline.id === 'slot-timeline';
                 const isSymbolTimeline = timeline.id === 'symbol-timeline';
-                
+
                 // 定义合法的时隙和符号类型
-                const slotTypes = ['downlink-time', 'uplink-time', 'guard-time'];
+                const slotTypes = ['downlink-time', 'uplink-time'];
                 const symbolTypes = ['downlink-symbol', 'uplink-symbol', 'gp-symbol'];
-                
+
                 // 验证拖放是否合法
                 if ((isSlotTimeline && !slotTypes.includes(data)) || 
                     (isSymbolTimeline && !symbolTypes.includes(data))) {
@@ -413,20 +415,30 @@
 
                 const newBlock = document.createElement('div');
                 newBlock.className = `block ${data}`;
-                
+
+                // 允许右键删除区块
+                newBlock.addEventListener('contextmenu', function(e) {
+                    e.preventDefault();
+                    if (confirm('确定要删除该时隙/符号区块吗？')) {
+                        newBlock.remove();
+                        updateSymbolCount();
+                    }
+                });
+
                 const totalSlots = timeline.id === 'symbol-timeline' ? 
                     parseInt(document.getElementById('slotCount').value) * 2 : 
                     parseInt(document.getElementById('slotCount').value);
-                
+
                 const timelineWidth = timeline.offsetWidth;
                 const blockWidth = timelineWidth / totalSlots;
                 newBlock.style.width = `${blockWidth}px`;
-                
+
                 const blocks = Array.from(timeline.children).filter(child => 
                     child.classList.contains('block'));
-                
+
                 if (blocks.length < totalSlots) {
                     timeline.appendChild(newBlock);
+                    updateSymbolCount();
                 }
             }
         }
@@ -469,10 +481,10 @@
         function updateTimelines() {
             const subframeCount = parseInt(document.getElementById('subframeCount').value);
             const slotCount = parseInt(document.getElementById('slotCount').value);
-            
+
             const subframeTimeline = document.getElementById('subframe-timeline');
             subframeTimeline.innerHTML = '';
-            
+
             for (let i = 0; i < subframeCount; i++) {
                 const block = document.createElement('div');
                 block.className = 'subframe-block';
@@ -481,31 +493,46 @@
                 block.style.float = 'left';
                 subframeTimeline.appendChild(block);
             }
-            
+
             const slotTimeline = document.getElementById('slot-timeline');
             const symbolTimeline = document.getElementById('symbol-timeline');
-            
+
             slotTimeline.innerHTML = '';
             symbolTimeline.innerHTML = '';
-            
+
             for (let i = 1; i < slotCount; i++) {
                 const slotDivider = document.createElement('div');
                 slotDivider.className = 'timeline-divider';
                 slotDivider.style.left = `${(i * 100) / slotCount}%`;
                 slotTimeline.appendChild(slotDivider);
-                
+
                 const symbolDivider = document.createElement('div');
                 symbolDivider.className = 'timeline-divider';
                 symbolDivider.style.left = `${(i * 100) / slotCount}%`;
                 symbolTimeline.appendChild(symbolDivider);
             }
-            
+
             for (let i = 0; i < slotCount; i++) {
                 const middleDivider = document.createElement('div');
                 middleDivider.className = 'timeline-divider';
                 middleDivider.style.left = `${((i * 100) + 50) / slotCount}%`;
                 symbolTimeline.appendChild(middleDivider);
             }
+            updateSymbolCount();
+        }
+
+        // 自动统计上下行符号数
+        function updateSymbolCount() {
+            const symbolTimeline = document.getElementById('symbol-timeline');
+            let uplink = 0, downlink = 0;
+            Array.from(symbolTimeline.children).forEach(block => {
+                if (block.classList && block.classList.contains('block')) {
+                    if (block.classList.contains('uplink-symbol')) uplink++;
+                    if (block.classList.contains('downlink-symbol')) downlink++;
+                }
+            });
+            document.getElementById('uplinkSymbolsAuto').textContent = uplink;
+            document.getElementById('downlinkSymbolsAuto').textContent = downlink;
         }
 
         document.addEventListener('DOMContentLoaded', updateTimelines);
@@ -524,6 +551,15 @@
             const mode = urlParams.get('mode');
             const requestKey = urlParams.get('requestKey');
             
+            // 显示当前配置基站ID
+            const selectedStationId = localStorage.getItem('selectedStationId');
+            if (selectedStationId) {
+                const idSpan = document.getElementById('currentStationId');
+                if (idSpan) {
+                    idSpan.textContent = '当前配置基站ID：' + selectedStationId;
+                }
+            }
+
             if (mode === 'calculate') {
                 console.log('进入计算模式');
                 // 获取计算请求
@@ -673,18 +709,18 @@
             }
 
             // 获取当前配置
-            const uplinkSymbols = document.getElementById('uplinkSymbols').value;
-            const downlinkSymbols = document.getElementById('downlinkSymbols').value;
+            const uplinkSymbols = parseInt(document.getElementById('uplinkSymbolsAuto').textContent);
+            const downlinkSymbols = parseInt(document.getElementById('downlinkSymbolsAuto').textContent);
             const subframeCount = document.getElementById('subframeCount').value;
             const slotCount = document.getElementById('slotCount').value;
-            
+
             // 获取时隙配置
             const slotConfig = [];
             const slotTimeline = document.getElementById('slot-timeline');
             Array.from(slotTimeline.children).forEach(block => {
                 if (block.classList.contains('block')) {
                     slotConfig.push(block.classList.contains('downlink-time') ? 'downlink' : 
-                                  block.classList.contains('uplink-time') ? 'uplink' : 'guard');
+                                  block.classList.contains('uplink-time') ? 'uplink' : '');
                 }
             });
 
@@ -701,7 +737,7 @@
             try {
                 // 获取现有配置
                 let stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
-                
+
                 // 更新当前基站的配置
                 const stationIndex = stationsConfig.findIndex(station => station.id === selectedStationId);
                 if (stationIndex !== -1) {
@@ -972,4 +1008,4 @@
         }
     </script>
 </body>
-</html> 
+</html>
