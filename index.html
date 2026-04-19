@@ -637,20 +637,53 @@
             const scheduledSymbols = parseInt(document.getElementById('scheduled-symbols').value);
             const dmrsPerPrb = parseInt(document.getElementById('dmrs-per-prb').value);
             const overhead = parseInt(document.getElementById('overhead').value);
-            const modulationOrder = parseInt(document.getElementById('modulation-order').value);
-            const codeRate = parseInt(document.getElementById('code-rate').value);
             const mimolayers = parseInt(document.getElementById('mimo-layers').value);
+
+            // MCS索引查表（部分常用，实际可补全）
+            // 38.214表5.1.3.1-1，Qm:调制阶数，R:码率(乘以1024)
+            const mcsTable = [
+                {Qm:2, R:120},   // 0 QPSK 0.1172
+                {Qm:2, R:193},   // 1 QPSK 0.1885
+                {Qm:2, R:308},   // 2 QPSK 0.3008
+                {Qm:2, R:449},   // 3 QPSK 0.4385
+                {Qm:2, R:602},   // 4 QPSK 0.5879
+                {Qm:2, R:378},   // 5 QPSK 0.3691
+                {Qm:2, R:490},   // 6 QPSK 0.4785
+                {Qm:2, R:616},   // 7 QPSK 0.6016
+                {Qm:2, R:466},   // 8 QPSK 0.4551
+                {Qm:2, R:567},   // 9 QPSK 0.5547
+                {Qm:4, R:438},   // 10 16QAM 0.4258
+                {Qm:4, R:466},   // 11 16QAM 0.4551
+                {Qm:4, R:567},   // 12 16QAM 0.5547
+                {Qm:4, R:616},   // 13 16QAM 0.6016
+                {Qm:6, R:666},   // 14 64QAM 0.6504
+                {Qm:6, R:719},   // 15 64QAM 0.7031
+                {Qm:6, R:772},   // 16 64QAM 0.7539
+                {Qm:6, R:822},   // 17 64QAM 0.8047
+                {Qm:6, R:873},   // 18 64QAM 0.8555
+                {Qm:6, R:910},   // 19 64QAM 0.8906
+                {Qm:8, R:948},   // 20 256QAM 0.9258
+                // ...可补全
+            ];
+            let Qm = 6, R = 438; // 默认
+            if (mcsIndex >= 0 && mcsIndex < mcsTable.length) {
+                Qm = mcsTable[mcsIndex].Qm;
+                R = mcsTable[mcsIndex].R;
+            }
+            // 自动覆盖输入框
+            document.getElementById('modulation-order').value = Qm;
+            document.getElementById('code-rate').value = R;
 
             // 根据μ值计算时隙长度（毫秒）
             const slotLength = 1 / Math.pow(2, subcarrierMu);
-            
+
             // 计算 N(RE')
             const nRE1 = scheduledSymbols * 12 - overhead - dmrsPerPrb;
             const nRE = Math.min(156, nRE1) * nprb;
             document.getElementById('nre-result').textContent = nRE;
 
             // 计算 Ninfo
-            const ninfo = nRE * (codeRate/1024) * modulationOrder;
+            const ninfo = nRE * (R/1024) * Qm;
             document.getElementById('ninfo-result').textContent = ninfo.toFixed(4);
 
             // 计算 TBS
@@ -660,8 +693,6 @@
                 const ninfo1 = Math.max(24, Math.pow(2, n) * Math.floor(ninfo / Math.pow(2, n)));
                 //查表得到tbs
                 const tbs_table = [24,32,40,48,56,64,72,80,88,96,104,112,120,128,136,144,152,160,168,176,184,192,208,240,256,272,280,304,320,336,352,368,384,408,432,456,480,504,528,552,576,608,640,672,704,736,768,808,848,928,984,1032,1064,1128,1160,1192,1224,1256,1288,1320,1352,1416,1480,1544,1608,1672,1736,1800,1864,1928,2024,2088,2152,2216,2280,2408,2472,2536,2600,2664,2728,2792,2856,2976,3104,3240,3368,3496,3624,3752,3824];
-                
-                // 修复循环逻辑
                 tbs = 24; // 默认最小值
                 for(let i = 0; i < tbs_table.length; i++){
                     if(ninfo1 >= tbs_table[i]){
@@ -673,7 +704,7 @@
             } else if (ninfo > 3824) {
                 const n = Math.floor(Math.log2(ninfo - 24)) - 5;
                 const ninfo1 = Math.max(3824, Math.pow(2, n) * Math.round((ninfo - 24) / Math.pow(2, n)));
-                if (codeRate <= 0.25) {
+                if (R <= 256) { // 0.25*1024
                     const C = Math.floor((ninfo + 24) / 3816);
                     tbs = 8 * C * Math.ceil((ninfo + 24) / (8 * C));
                 } else {
@@ -687,16 +718,8 @@
             }
             document.getElementById('tbs-result').textContent = tbs;
 
-            // // 计算吞吐量 (Mbps)
-            // const throughput = tbs / 1024;
-            // document.getElementById('throughput-result').textContent = throughput.toFixed(3);
-
             // 计算小区容量
             const throughput = mimolayers * Math.pow(2,subcarrierMu) *tbs *1000 /1024/1024;
-            console.log("throughput",throughput);
-            console.log("mimolayers",mimolayers);
-            console.log("Math.pow",Math.pow(2,subcarrierMu));
-            
             document.getElementById('throughput-result').textContent = throughput.toFixed(3);
         }
 
