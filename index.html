@@ -75,6 +75,7 @@
             display: flex;
             gap: 20px;
             margin-bottom: 8px;
+            flex-wrap: wrap;
         }
 
         select {
@@ -94,7 +95,7 @@
         .timeline {
             background: rgba(236, 240, 241, 0.8);
             border: 1px solid rgba(189, 195, 199, 0.5);
-            height: 35px;
+            height: 45px;
             margin: 8px 0;
             position: relative;
             display: flex;
@@ -123,7 +124,7 @@
             margin-top: 8px;
             flex-wrap: wrap;
         }
-        
+
         .block {
             width: 90px;
             height: 25px;
@@ -137,31 +138,37 @@
             text-align: center;
         }
 
-        .downlink-time { background-color: #ffff66; }
-        .uplink-time { background-color: #ff6666; }
-        .guard-time { background-color: #FFFFFF; border: 1px solid #a66a6a; }
-        .downlink-symbol { background-color: #2196F3; }
-        .uplink-symbol { background-color: #99cc66; }
-        .gp-symbol { background-color: #FFFFFF; border: 1px solid #000; }
+        .downlink-time {
+            background-color: #ffff66;
+        }
 
-        .draggable-clone {
-            position: absolute;
-            pointer-events: none;
-            opacity: 0.7;
+        .uplink-time {
+            background-color: #ff6666;
+        }
+
+        .guard-time {
+            background-color: #FFFFFF;
+            border: 1px solid #a66a6a;
+        }
+
+        .downlink-symbol {
+            background-color: #2196F3;
+            color: white;
+        }
+
+        .uplink-symbol {
+            background-color: #99cc66;
+        }
+
+        .gp-symbol {
+            background-color: #FFFFFF;
+            border: 1px solid #000;
         }
 
         .subframe-block {
             height: 100%;
             background-color: #cb68fc;
             border-right: 1px solid #ccc;
-        }
-
-        .timeline-grid {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            display: grid;
-            pointer-events: none;
         }
 
         .timeline .block {
@@ -180,7 +187,6 @@
             margin: 0;
         }
 
-        /* 添加配置完毕按钮样式 */
         .config-complete-button {
             position: fixed;
             bottom: 20px;
@@ -202,6 +208,29 @@
         .config-complete-button:disabled {
             background-color: #bdc3c7;
             cursor: not-allowed;
+        }
+
+        /* 固定符号槽位样式 */
+        .symbol-slot {
+            flex: 1;
+            height: 100%;
+            margin: 0 1px;
+            border: 1px dashed #bbb;
+            background-color: #f9f9f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-sizing: border-box;
+        }
+        .symbol-slot .block {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: default;
         }
     </style>
 </head>
@@ -247,11 +276,11 @@
                         </select>
                     </div>
                     <div>
-                        <label>上行符号数：</label>
+                        <label>上行符号数（每时隙）：</label>
                         <span id="uplinkSymbolsAuto" style="font-weight:bold;color:#27ae60;">0</span>
                     </div>
                     <div>
-                        <label>下行符号数：</label>
+                        <label>下行符号数（每时隙）：</label>
                         <span id="downlinkSymbolsAuto" style="font-weight:bold;color:#2196F3;">0</span>
                     </div>
                 </div>
@@ -259,13 +288,13 @@
 
             <div>
                 <h3>子帧</h3>
-                <div class="timeline" id="subframe-timeline" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
-                
+                <div class="timeline" id="subframe-timeline"></div>
+
                 <h3>时隙</h3>
-                <div class="timeline" id="slot-timeline" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
-                
-                <h3>符号</h3>
-                <div class="timeline" id="symbol-timeline" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+                <div class="timeline" id="slot-timeline" ondrop="dropSlot(event)" ondragover="allowDrop(event)"></div>
+
+                <h3>符号（单时隙固定14符号，拖拽填充）</h3>
+                <div class="timeline" id="symbol-timeline" style="display:flex; gap:2px;"></div>
             </div>
 
             <h3>资源池</h3>
@@ -284,8 +313,6 @@
 
         <div class="calculator">
             <h2 class="section-title">5G NR TBS 计算器</h2>
-            
-           
 
             <div class="input-section">
                 <div class="input-group">
@@ -325,8 +352,8 @@
 
                 <div class="input-group">
                     <label class="input-label">
-                        N sh symb (时隙中分配给PDSCH的符号数)
-                        <input type="number" class="input-field" value="13" min="1" id="scheduled-symbols">
+                        N sh symb (时隙中分配给PDSCH/PUSCH的符号数) 
+                        <input type="number" class="input-field" id="scheduled-symbols" readonly style="background:#f0f0f0;">
                     </label>
                 </div>
 
@@ -343,7 +370,6 @@
                         <input type="number" class="input-field" value="0" min="0" id="overhead">
                     </label>
                 </div>
-
 
                 <div class="input-group">
                     <label class="input-label">
@@ -375,12 +401,12 @@
                 </div>
             </div>
         </div>
-        
-        <!-- 添加部署完毕按钮 -->
+
         <button id="deploymentCompleteButton" class="config-complete-button" style="display: none;" onclick="window.location.href='deploy.html'">部署完毕</button>
     </div>
 
     <script>
+        // ------------------ 通用函数 ------------------
         function allowDrop(ev) {
             ev.preventDefault();
         }
@@ -389,102 +415,108 @@
             ev.dataTransfer.setData("text", ev.target.getAttribute('data-type'));
         }
 
-        function drop(ev) {
+        // 时隙时间轴的拖放（保持原有逻辑）
+        function dropSlot(ev) {
             ev.preventDefault();
             const data = ev.dataTransfer.getData("text");
-            const timeline = ev.target;
+            const timeline = ev.target.closest('.timeline');
+            if (!timeline || timeline.id !== 'slot-timeline') return;
 
-            if (timeline.classList.contains('timeline')) {
-                // 检查是否是合法的拖放组合
-                const isSlotTimeline = timeline.id === 'slot-timeline';
-                const isSymbolTimeline = timeline.id === 'symbol-timeline';
-
-                // 定义合法的时隙和符号类型
-                const slotTypes = ['downlink-time', 'uplink-time'];
-                const symbolTypes = ['downlink-symbol', 'uplink-symbol', 'gp-symbol'];
-
-                // 验证拖放是否合法
-                if ((isSlotTimeline && !slotTypes.includes(data)) || 
-                    (isSymbolTimeline && !symbolTypes.includes(data))) {
-                    // 如果不合法，显示提示并返回
-                    showToast(isSlotTimeline ? 
-                        "只能在时隙时间轴放置时隙类型" : 
-                        "只能在符号时间轴放置符号类型");
-                    return;
-                }
-
-                const newBlock = document.createElement('div');
-                newBlock.className = `block ${data}`;
-
-                // 允许右键删除区块
-                newBlock.addEventListener('contextmenu', function(e) {
-                    e.preventDefault();
-                    if (confirm('确定要删除该时隙/符号区块吗？')) {
-                        newBlock.remove();
-                        updateSymbolCount();
-                    }
-                });
-
-                const totalSlots = timeline.id === 'symbol-timeline' ? 
-                    parseInt(document.getElementById('slotCount').value) * 2 : 
-                    parseInt(document.getElementById('slotCount').value);
-
-                const timelineWidth = timeline.offsetWidth;
-                const blockWidth = timelineWidth / totalSlots;
-                newBlock.style.width = `${blockWidth}px`;
-
-                const blocks = Array.from(timeline.children).filter(child => 
-                    child.classList.contains('block'));
-
-                if (blocks.length < totalSlots) {
-                    timeline.appendChild(newBlock);
-                    updateSymbolCount();
-                }
+            const slotTypes = ['downlink-time', 'uplink-time'];
+            if (!slotTypes.includes(data)) {
+                showToast("只能在时隙时间轴放置时隙类型");
+                return;
             }
-        }
 
-        // 添加提示函数
-        function showToast(message) {
-            // 检查是否已存在toast元素
-            let toast = document.getElementById('toast');
-            if (!toast) {
-                toast = document.createElement('div');
-                toast.id = 'toast';
-                document.body.appendChild(toast);
-            }
-            
-            // 设置toast样式
-            Object.assign(toast.style, {
-                position: 'fixed',
-                top: '80px',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                background: 'rgba(114, 116, 154, 0.9)',
-                color: 'white',
-                padding: '10px 20px',
-                borderRadius: '4px',
-                zIndex: '1000',
-                transition: 'opacity 0.3s',
-                fontSize: '14px'
+            const newBlock = document.createElement('div');
+            newBlock.className = `block ${data}`;
+            newBlock.textContent = data === 'downlink-time' ? '下行' : '上行';
+
+            newBlock.addEventListener('contextmenu', function(e) {
+                e.preventDefault();
+                if (confirm('确定要删除该时隙区块吗？')) {
+                    newBlock.remove();
+                    updateSymbolCount(); // 时隙删除不会影响符号数，但保留调用以统一
+                }
             });
-            
-            // 显示消息
-            toast.textContent = message;
-            toast.style.opacity = '1';
-            
-            // 3秒后隐藏
-            setTimeout(() => {
-                toast.style.opacity = '0';
-            }, 3000);
+
+            const slotCount = parseInt(document.getElementById('slotCount').value);
+            const timelineWidth = timeline.offsetWidth;
+            const blockWidth = timelineWidth / slotCount;
+            newBlock.style.width = `${blockWidth}px`;
+
+            const blocks = Array.from(timeline.children).filter(child => child.classList && child.classList.contains('block'));
+            if (blocks.length < slotCount) {
+                timeline.appendChild(newBlock);
+            } else {
+                showToast("时隙槽位已满，请先删除再添加");
+            }
         }
 
+        // 符号时间轴的拖放（固定14个槽位，每个槽位独立放置）
+        function initSymbolSlots() {
+            const symbolTimeline = document.getElementById('symbol-timeline');
+            symbolTimeline.innerHTML = '';
+            for (let i = 0; i < 14; i++) {
+                const slot = document.createElement('div');
+                slot.className = 'symbol-slot';
+                slot.setAttribute('data-index', i);
+                slot.addEventListener('dragover', allowDrop);
+                slot.addEventListener('drop', function(e) {
+                    e.preventDefault();
+                    const data = e.dataTransfer.getData("text");
+                    if (!['downlink-symbol', 'uplink-symbol', 'gp-symbol'].includes(data)) return;
+                    // 清空当前槽位原有内容
+                    slot.innerHTML = '';
+                    const symbolDiv = document.createElement('div');
+                    symbolDiv.className = `block ${data}`;
+                    symbolDiv.textContent = data === 'downlink-symbol' ? '下行' : (data === 'uplink-symbol' ? '上行' : 'GP');
+                    // 右键删除
+                    symbolDiv.addEventListener('contextmenu', function(ev) {
+                        ev.preventDefault();
+                        if (confirm('确定要删除该符号吗？')) {
+                            slot.innerHTML = '';
+                            updateSymbolCount();
+                        }
+                    });
+                    slot.appendChild(symbolDiv);
+                    updateSymbolCount();
+                });
+                symbolTimeline.appendChild(slot);
+            }
+        }
+
+        // 更新符号统计（每时隙上下行符号数）并联动TBS计算器的符号数输入框
+        function updateSymbolCount() {
+            const slots = document.querySelectorAll('#symbol-timeline .symbol-slot');
+            let uplink = 0, downlink = 0;
+            slots.forEach(slot => {
+                const block = slot.querySelector('.block');
+                if (block) {
+                    if (block.classList.contains('uplink-symbol')) uplink++;
+                    if (block.classList.contains('downlink-symbol')) downlink++;
+                }
+            });
+            document.getElementById('uplinkSymbolsAuto').textContent = uplink;
+            document.getElementById('downlinkSymbolsAuto').textContent = downlink;
+
+            // 更新TBS计算器的符号数输入框（只读，自动计算总符号数）
+            const totalSymbols = uplink + downlink;
+            const scheduledInput = document.getElementById('scheduled-symbols');
+            if (scheduledInput) {
+                scheduledInput.value = totalSymbols;
+                updateResults(); // 重新计算TBS
+            }
+        }
+
+        // 更新子帧与时隙时间轴（时隙时间轴重置，符号时间轴保持不变）
         function updateTimelines() {
             const subframeCount = parseInt(document.getElementById('subframeCount').value);
             const slotCount = parseInt(document.getElementById('slotCount').value);
 
+            // 子帧时间轴
             const subframeTimeline = document.getElementById('subframe-timeline');
             subframeTimeline.innerHTML = '';
-
             for (let i = 0; i < subframeCount; i++) {
                 const block = document.createElement('div');
                 block.className = 'subframe-block';
@@ -494,82 +526,206 @@
                 subframeTimeline.appendChild(block);
             }
 
+            // 时隙时间轴：清空并添加分割线（不预先放置块，由用户拖拽）
             const slotTimeline = document.getElementById('slot-timeline');
-            const symbolTimeline = document.getElementById('symbol-timeline');
-
             slotTimeline.innerHTML = '';
-            symbolTimeline.innerHTML = '';
-
             for (let i = 1; i < slotCount; i++) {
-                const slotDivider = document.createElement('div');
-                slotDivider.className = 'timeline-divider';
-                slotDivider.style.left = `${(i * 100) / slotCount}%`;
-                slotTimeline.appendChild(slotDivider);
-
-                const symbolDivider = document.createElement('div');
-                symbolDivider.className = 'timeline-divider';
-                symbolDivider.style.left = `${(i * 100) / slotCount}%`;
-                symbolTimeline.appendChild(symbolDivider);
+                const divider = document.createElement('div');
+                divider.className = 'timeline-divider';
+                divider.style.left = `${(i * 100) / slotCount}%`;
+                slotTimeline.appendChild(divider);
             }
-
-            for (let i = 0; i < slotCount; i++) {
-                const middleDivider = document.createElement('div');
-                middleDivider.className = 'timeline-divider';
-                middleDivider.style.left = `${((i * 100) + 50) / slotCount}%`;
-                symbolTimeline.appendChild(middleDivider);
+            // 符号时间轴已经固定初始化，不再重建（避免丢失配置）
+            // 但需确保符号槽位存在（首次加载时调用initSymbolSlots）
+            if (document.querySelectorAll('#symbol-timeline .symbol-slot').length === 0) {
+                initSymbolSlots();
             }
             updateSymbolCount();
         }
 
-        // 自动统计上下行符号数
-        function updateSymbolCount() {
-            const symbolTimeline = document.getElementById('symbol-timeline');
-            let uplink = 0, downlink = 0;
-            Array.from(symbolTimeline.children).forEach(block => {
-                if (block.classList && block.classList.contains('block')) {
-                    if (block.classList.contains('uplink-symbol')) uplink++;
-                    if (block.classList.contains('downlink-symbol')) downlink++;
-                }
+        // 提示信息
+        function showToast(message) {
+            let toast = document.getElementById('toast');
+            if (!toast) {
+                toast = document.createElement('div');
+                toast.id = 'toast';
+                document.body.appendChild(toast);
+            }
+            Object.assign(toast.style, {
+                position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)',
+                background: 'rgba(114, 116, 154, 0.9)', color: 'white', padding: '10px 20px',
+                borderRadius: '4px', zIndex: '1000', transition: 'opacity 0.3s', fontSize: '14px'
             });
-            document.getElementById('uplinkSymbolsAuto').textContent = uplink;
-            document.getElementById('downlinkSymbolsAuto').textContent = downlink;
+            toast.textContent = message;
+            toast.style.opacity = '1';
+            setTimeout(() => toast.style.opacity = '0', 3000);
         }
 
-        document.addEventListener('DOMContentLoaded', updateTimelines);
+        // ------------------ TBS 计算 ------------------
+        function updateResults() {
+            const mcsIndex = parseInt(document.getElementById('mcs-number').value);
+            const subcarrierMu = parseInt(document.getElementById('subcarrier-mu').value);
+            const nprb = parseInt(document.getElementById('nprb').value);
+            const scheduledSymbols = parseInt(document.getElementById('scheduled-symbols').value);
+            const dmrsPerPrb = parseInt(document.getElementById('dmrs-per-prb').value);
+            const overhead = parseInt(document.getElementById('overhead').value);
+            const mimolayers = parseInt(document.getElementById('mimo-layers').value);
 
+            const mcsTable = [
+                { Qm: 2, R: 120 }, { Qm: 2, R: 193 }, { Qm: 2, R: 308 }, { Qm: 2, R: 449 },
+                { Qm: 2, R: 602 }, { Qm: 2, R: 378 }, { Qm: 2, R: 490 }, { Qm: 2, R: 616 },
+                { Qm: 2, R: 466 }, { Qm: 2, R: 567 }, { Qm: 4, R: 438 }, { Qm: 4, R: 466 },
+                { Qm: 4, R: 567 }, { Qm: 4, R: 616 }, { Qm: 6, R: 666 }, { Qm: 6, R: 719 },
+                { Qm: 6, R: 772 }, { Qm: 6, R: 822 }, { Qm: 6, R: 873 }, { Qm: 6, R: 910 },
+                { Qm: 8, R: 948 }
+            ];
+            let Qm = 6, R = 438;
+            if (mcsIndex >= 0 && mcsIndex < mcsTable.length) {
+                Qm = mcsTable[mcsIndex].Qm;
+                R = mcsTable[mcsIndex].R;
+            }
+            document.getElementById('modulation-order').value = Qm;
+            document.getElementById('code-rate').value = R;
 
-        
-        // 其他输入框变化时更新结果
-        document.querySelectorAll('.input-field, select').forEach(input => {
-            input.addEventListener('change', updateResults);
-        });
+            const nRE1 = scheduledSymbols * 12 - overhead - dmrsPerPrb;
+            const nRE = Math.min(156, nRE1) * nprb;
+            document.getElementById('nre-result').textContent = nRE;
 
-        // 页面加载时调用
-        document.addEventListener('DOMContentLoaded', function() {
-            // 检查是否是计算模式
-            const urlParams = new URLSearchParams(window.location.search);
-            const mode = urlParams.get('mode');
-            const requestKey = urlParams.get('requestKey');
-            
-            // 显示当前配置基站ID
+            const ninfo = nRE * (R / 1024) * Qm;
+            document.getElementById('ninfo-result').textContent = ninfo.toFixed(4);
+
+            let tbs;
+            if (ninfo <= 3824) {
+                const n = Math.max(3, Math.floor(Math.log2(ninfo) - 6));
+                const ninfo1 = Math.max(24, Math.pow(2, n) * Math.floor(ninfo / Math.pow(2, n)));
+                const tbs_table = [24,32,40,48,56,64,72,80,88,96,104,112,120,128,136,144,152,160,168,176,184,192,208,240,256,272,280,304,320,336,352,368,384,408,432,456,480,504,528,552,576,608,640,672,704,736,768,808,848,928,984,1032,1064,1128,1160,1192,1224,1256,1288,1320,1352,1416,1480,1544,1608,1672,1736,1800,1864,1928,2024,2088,2152,2216,2280,2408,2472,2536,2600,2664,2728,2792,2856,2976,3104,3240,3368,3496,3624,3752,3824];
+                tbs = 24;
+                for (let i = 0; i < tbs_table.length; i++) {
+                    if (ninfo1 >= tbs_table[i]) tbs = tbs_table[i];
+                    else break;
+                }
+            } else {
+                const n = Math.floor(Math.log2(ninfo - 24)) - 5;
+                const ninfo1 = Math.max(3824, Math.pow(2, n) * Math.round((ninfo - 24) / Math.pow(2, n)));
+                if (R <= 256) {
+                    const C = Math.floor((ninfo + 24) / 3816);
+                    tbs = 8 * C * Math.ceil((ninfo + 24) / (8 * C));
+                } else {
+                    if (ninfo > 8424) {
+                        const C = Math.floor((ninfo + 24) / 8424);
+                        tbs = 8 * C * Math.ceil((ninfo + 24) / (8 * C));
+                    } else {
+                        tbs = 8 * Math.ceil((ninfo + 24) / 8) - 24;
+                    }
+                }
+            }
+            document.getElementById('tbs-result').textContent = tbs;
+            const throughput = mimolayers * Math.pow(2, subcarrierMu) * tbs * 1000 / 1024 / 1024;
+            document.getElementById('throughput-result').textContent = throughput.toFixed(3);
+        }
+
+        // ------------------ 保存配置 ------------------
+        function saveAndReturn() {
+            const selectedStationId = localStorage.getItem('selectedStationId');
+            if (!selectedStationId) {
+                alert('未找到选中的基站！');
+                return;
+            }
+
+            const uplinkSymbols = parseInt(document.getElementById('uplinkSymbolsAuto').textContent);
+            const downlinkSymbols = parseInt(document.getElementById('downlinkSymbolsAuto').textContent);
+            const subframeCount = document.getElementById('subframeCount').value;
+            const slotCount = document.getElementById('slotCount').value;
+
+            // 获取时隙配置（时隙时间轴中的块顺序）
+            const slotConfig = [];
+            const slotTimeline = document.getElementById('slot-timeline');
+            Array.from(slotTimeline.children).forEach(child => {
+                if (child.classList && child.classList.contains('block')) {
+                    if (child.classList.contains('downlink-time')) slotConfig.push('downlink');
+                    else if (child.classList.contains('uplink-time')) slotConfig.push('uplink');
+                }
+            });
+
+            // 获取符号配置（14个槽位，按顺序记录）
+            const symbolConfig = [];
+            const slots = document.querySelectorAll('#symbol-timeline .symbol-slot');
+            slots.forEach(slot => {
+                const block = slot.querySelector('.block');
+                if (block) {
+                    if (block.classList.contains('downlink-symbol')) symbolConfig.push('downlink');
+                    else if (block.classList.contains('uplink-symbol')) symbolConfig.push('uplink');
+                    else if (block.classList.contains('gp-symbol')) symbolConfig.push('guard');
+                    else symbolConfig.push('');
+                } else {
+                    symbolConfig.push('');
+                }
+            });
+
+            try {
+                let stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
+                const stationIndex = stationsConfig.findIndex(station => station.id === selectedStationId);
+                if (stationIndex !== -1) {
+                    const existingConfig = stationsConfig[stationIndex];
+                    stationsConfig[stationIndex] = {
+                        ...existingConfig,
+                        symbolRatio: { uplink: uplinkSymbols, downlink: downlinkSymbols },
+                        subframeCount, slotCount, slotConfig, symbolConfig,
+                        lastUpdated: new Date().toISOString()
+                    };
+                } else {
+                    stationsConfig.push({
+                        id: selectedStationId,
+                        symbolRatio: { uplink: uplinkSymbols, downlink: downlinkSymbols },
+                        subframeCount, slotCount, slotConfig, symbolConfig,
+                        lastUpdated: new Date().toISOString()
+                    });
+                }
+                localStorage.setItem('stationsConfig', JSON.stringify(stationsConfig));
+                console.log('配置已保存');
+                setTimeout(() => window.location.replace('./deploy.html'), 100);
+            } catch (error) {
+                console.error('保存配置时出错:', error);
+                alert('保存配置时出错，请重试！');
+            }
+        }
+
+        // ------------------ 页面初始化和计算模式支持 ------------------
+        document.addEventListener('DOMContentLoaded', function () {
+            // 固定符号时间轴
+            initSymbolSlots();
+
+            // 初始化子帧、时隙时间轴
+            updateTimelines();
+
+            // 监听符号配置变化时更新TBS计算器的符号数
+            const observer = new MutationObserver(() => updateSymbolCount());
+            observer.observe(document.getElementById('symbol-timeline'), { childList: true, subtree: true });
+
+            // 显示当前基站ID
             const selectedStationId = localStorage.getItem('selectedStationId');
             if (selectedStationId) {
                 const idSpan = document.getElementById('currentStationId');
-                if (idSpan) {
-                    idSpan.textContent = '当前配置基站ID：' + selectedStationId;
-                }
+                if (idSpan) idSpan.textContent = '当前配置基站ID：' + selectedStationId;
             }
 
+            // 其他输入框变化时更新计算结果
+            document.querySelectorAll('.input-field, select').forEach(input => {
+                input.addEventListener('change', updateResults);
+            });
+
+            // 初始计算一次
+            updateResults();
+
+            // 处理跨页面计算模式（从deploy.html调用）
+            const urlParams = new URLSearchParams(window.location.search);
+            const mode = urlParams.get('mode');
+            const requestKey = urlParams.get('requestKey');
             if (mode === 'calculate') {
-                console.log('进入计算模式');
-                // 获取计算请求
                 const calculationRequest = JSON.parse(localStorage.getItem(requestKey || 'calculationRequest') || '{}');
                 if (calculationRequest.status === 'pending') {
-                    console.log('收到计算请求:', calculationRequest);
                     try {
-                        // 使用SINR计算MCS
                         const sinr = calculationRequest.sinr;
-                        console.log("request.sinr", sinr);
                         let mcs;
                         if (sinr >= 27.86) mcs = 15;
                         else if (sinr >= 26.01) mcs = 14;
@@ -588,447 +744,33 @@
                         else if (sinr >= -8.51) mcs = 1;
                         else mcs = 1;
 
-                        // 设置计算器的输入值
                         document.getElementById('mcs-number').value = mcs;
                         document.getElementById('nprb').value = '273';
-                        document.getElementById('scheduled-symbols').value = calculationRequest.symbolCount.toString();
+                        document.getElementById('scheduled-symbols').value = calculationRequest.symbolCount;
                         document.getElementById('dmrs-per-prb').value = '2';
                         document.getElementById('overhead').value = '0';
-                        
-                        // 触发计算
                         updateResults();
-                        
-                        // 获取计算结果
+
                         const throughput = parseFloat(document.getElementById('throughput-result').textContent);
-                        
-                        // 返回计算结果
                         const result = {
                             requestId: calculationRequest.requestId,
                             status: 'completed',
                             achievableRate: throughput
                         };
-                        
-                        console.log('计算完成，返回结果:', result);
                         localStorage.setItem('calculationResult', JSON.stringify(result));
                     } catch (error) {
-                        console.error('计算过程出错:', error);
-                        // 返回错误结果
-                        const result = {
+                        localStorage.setItem('calculationResult', JSON.stringify({
                             requestId: calculationRequest.requestId,
                             status: 'error',
                             error: error.message
-                        };
-                        localStorage.setItem('calculationResult', JSON.stringify(result));
+                        }));
                     }
                 }
-                return; // 不继续加载页面的其他内容
-            }
-            
-            // 原有的页面初始化代码
-            loadSavedConfig();
-            updateSlotDisplay();
-        });
-
-        // 确保updateResults函数可用
-        function updateResults() {
-            const mcsIndex = parseInt(document.getElementById('mcs-number').value);
-            const subcarrierMu = parseInt(document.getElementById('subcarrier-mu').value);
-            const nprb = parseInt(document.getElementById('nprb').value);
-            const scheduledSymbols = parseInt(document.getElementById('scheduled-symbols').value);
-            const dmrsPerPrb = parseInt(document.getElementById('dmrs-per-prb').value);
-            const overhead = parseInt(document.getElementById('overhead').value);
-            const mimolayers = parseInt(document.getElementById('mimo-layers').value);
-
-            // MCS索引查表（部分常用，实际可补全）
-            // 38.214表5.1.3.1-1，Qm:调制阶数，R:码率(乘以1024)
-            const mcsTable = [
-                {Qm:2, R:120},   // 0 QPSK 0.1172
-                {Qm:2, R:193},   // 1 QPSK 0.1885
-                {Qm:2, R:308},   // 2 QPSK 0.3008
-                {Qm:2, R:449},   // 3 QPSK 0.4385
-                {Qm:2, R:602},   // 4 QPSK 0.5879
-                {Qm:2, R:378},   // 5 QPSK 0.3691
-                {Qm:2, R:490},   // 6 QPSK 0.4785
-                {Qm:2, R:616},   // 7 QPSK 0.6016
-                {Qm:2, R:466},   // 8 QPSK 0.4551
-                {Qm:2, R:567},   // 9 QPSK 0.5547
-                {Qm:4, R:438},   // 10 16QAM 0.4258
-                {Qm:4, R:466},   // 11 16QAM 0.4551
-                {Qm:4, R:567},   // 12 16QAM 0.5547
-                {Qm:4, R:616},   // 13 16QAM 0.6016
-                {Qm:6, R:666},   // 14 64QAM 0.6504
-                {Qm:6, R:719},   // 15 64QAM 0.7031
-                {Qm:6, R:772},   // 16 64QAM 0.7539
-                {Qm:6, R:822},   // 17 64QAM 0.8047
-                {Qm:6, R:873},   // 18 64QAM 0.8555
-                {Qm:6, R:910},   // 19 64QAM 0.8906
-                {Qm:8, R:948},   // 20 256QAM 0.9258
-                // ...可补全
-            ];
-            let Qm = 6, R = 438; // 默认
-            if (mcsIndex >= 0 && mcsIndex < mcsTable.length) {
-                Qm = mcsTable[mcsIndex].Qm;
-                R = mcsTable[mcsIndex].R;
-            }
-            // 自动覆盖输入框
-            document.getElementById('modulation-order').value = Qm;
-            document.getElementById('code-rate').value = R;
-
-            // 根据μ值计算时隙长度（毫秒）
-            const slotLength = 1 / Math.pow(2, subcarrierMu);
-
-            // 计算 N(RE')
-            const nRE1 = scheduledSymbols * 12 - overhead - dmrsPerPrb;
-            const nRE = Math.min(156, nRE1) * nprb;
-            document.getElementById('nre-result').textContent = nRE;
-
-            // 计算 Ninfo
-            const ninfo = nRE * (R/1024) * Qm;
-            document.getElementById('ninfo-result').textContent = ninfo.toFixed(4);
-
-            // 计算 TBS
-            let tbs;
-            if (ninfo <= 3824) {
-                const n = Math.max(3, Math.floor(Math.log2(ninfo) - 6));
-                const ninfo1 = Math.max(24, Math.pow(2, n) * Math.floor(ninfo / Math.pow(2, n)));
-                //查表得到tbs
-                const tbs_table = [24,32,40,48,56,64,72,80,88,96,104,112,120,128,136,144,152,160,168,176,184,192,208,240,256,272,280,304,320,336,352,368,384,408,432,456,480,504,528,552,576,608,640,672,704,736,768,808,848,928,984,1032,1064,1128,1160,1192,1224,1256,1288,1320,1352,1416,1480,1544,1608,1672,1736,1800,1864,1928,2024,2088,2152,2216,2280,2408,2472,2536,2600,2664,2728,2792,2856,2976,3104,3240,3368,3496,3624,3752,3824];
-                tbs = 24; // 默认最小值
-                for(let i = 0; i < tbs_table.length; i++){
-                    if(ninfo1 >= tbs_table[i]){
-                        tbs = tbs_table[i];
-                    } else {
-                        break;
-                    }
-                }
-            } else if (ninfo > 3824) {
-                const n = Math.floor(Math.log2(ninfo - 24)) - 5;
-                const ninfo1 = Math.max(3824, Math.pow(2, n) * Math.round((ninfo - 24) / Math.pow(2, n)));
-                if (R <= 256) { // 0.25*1024
-                    const C = Math.floor((ninfo + 24) / 3816);
-                    tbs = 8 * C * Math.ceil((ninfo + 24) / (8 * C));
-                } else {
-                    if (ninfo > 8424) {
-                        const C = Math.floor((ninfo + 24) / 8424);
-                        tbs = 8 * C * Math.ceil((ninfo + 24) / (8 * C));
-                    } else {
-                        tbs = 8 * Math.ceil((ninfo + 24) / 8) - 24;
-                    }
-                }
-            }
-            document.getElementById('tbs-result').textContent = tbs;
-
-            // 计算小区容量
-            const throughput = mimolayers * Math.pow(2,subcarrierMu) *tbs *1000 /1024/1024;
-            document.getElementById('throughput-result').textContent = throughput.toFixed(3);
-        }
-
-        // 修改配置保存功能
-        function saveAndReturn() {
-            const selectedStationId = localStorage.getItem('selectedStationId');
-            if (!selectedStationId) {
-                alert('未找到选中的基站！');
+                // 不继续显示页面内容
+                document.body.innerHTML = '<div style="text-align:center;margin-top:50px;">计算完成，窗口可关闭</div>';
                 return;
             }
-
-            // 获取当前配置
-            const uplinkSymbols = parseInt(document.getElementById('uplinkSymbolsAuto').textContent);
-            const downlinkSymbols = parseInt(document.getElementById('downlinkSymbolsAuto').textContent);
-            const subframeCount = document.getElementById('subframeCount').value;
-            const slotCount = document.getElementById('slotCount').value;
-
-            // 获取时隙配置
-            const slotConfig = [];
-            const slotTimeline = document.getElementById('slot-timeline');
-            Array.from(slotTimeline.children).forEach(block => {
-                if (block.classList.contains('block')) {
-                    slotConfig.push(block.classList.contains('downlink-time') ? 'downlink' : 
-                                  block.classList.contains('uplink-time') ? 'uplink' : '');
-                }
-            });
-
-            // 获取符号配置
-            const symbolConfig = [];
-            const symbolTimeline = document.getElementById('symbol-timeline');
-            Array.from(symbolTimeline.children).forEach(block => {
-                if (block.classList.contains('block')) {
-                    symbolConfig.push(block.classList.contains('downlink-symbol') ? 'downlink' : 
-                                    block.classList.contains('uplink-symbol') ? 'uplink' : 'guard');
-                }
-            });
-
-            try {
-                // 获取现有配置
-                let stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
-
-                // 更新当前基站的配置
-                const stationIndex = stationsConfig.findIndex(station => station.id === selectedStationId);
-                if (stationIndex !== -1) {
-                    // 保留原有的antennaConfig
-                    const existingConfig = stationsConfig[stationIndex];
-                    stationsConfig[stationIndex] = {
-                        ...existingConfig,
-                        symbolRatio: {
-                            uplink: uplinkSymbols,
-                            downlink: downlinkSymbols
-                        },
-                        subframeCount: subframeCount,
-                        slotCount: slotCount,
-                        slotConfig: slotConfig,
-                        symbolConfig: symbolConfig,
-                        lastUpdated: new Date().toISOString()
-                    };
-                } else {
-                    // 如果找不到配置，创建新的
-                    stationsConfig.push({
-                        id: selectedStationId,
-                        symbolRatio: {
-                            uplink: uplinkSymbols,
-                            downlink: downlinkSymbols
-                        },
-                        subframeCount: subframeCount,
-                        slotCount: slotCount,
-                        slotConfig: slotConfig,
-                        symbolConfig: symbolConfig,
-                        lastUpdated: new Date().toISOString()
-                    });
-                }
-
-                // 保存更新后的配置
-                localStorage.setItem('stationsConfig', JSON.stringify(stationsConfig));
-                console.log('配置已保存');
-
-                // 确保配置保存成功后再跳转
-                setTimeout(() => {
-                    console.log('准备跳转到deploy.html');
-                    window.location.replace('./deploy.html');
-                }, 100);
-
-            } catch (error) {
-                console.error('保存配置时出错:', error);
-                alert('保存配置时出错，请重试！');
-            }
-        }
-
-        // 添加localStorage变化监听
-        window.addEventListener('storage', function(e) {
-            console.log('localStorage变化，调用updateStationCount');
-            if (e.key === 'stationsConfig') {
-                updateStationCount();
-            }
         });
-
-        // Okumura-Hata模型参数
-        const P = 10; // 基站发射功率，单位W
-        const fc = 900; // MHz
-        const h_te = 30; // 基站天线高度，m
-        const h_re = 1.5; // 用户天线高度，m
-        const alpha_hre = 6.87; // 有效天线修正因子
-        const N = 18; // 邻小区数
-
-        // 计算路径损耗（dB），d单位为km
-        function pathLoss(d) {
-            if (d < 0.01) d = 0.01; // 防止log(0)
-            return -(69.55 + 26.16 * Math.log10(fc) - 13.82 * Math.log10(h_te) - alpha_hre + (44.9 - 6.55 * Math.log10(h_te)) * Math.log10(d));
-        }
-
-        // 计算SINR（dB），输入：用户到中心基站距离（米），中心基站坐标，所有邻小区基站坐标
-        function calcSINR(userX, userY, centerX, centerY, neighborStations) {
-            // 1. 计算用户到中心基站距离（km）
-            const dc = Math.sqrt(Math.pow(userX - centerX, 2) + Math.pow(userY - centerY, 2)) * 0.01; // 像素*10米→米→km
-            // 2. 路径损耗
-            const Lpc = pathLoss(dc);
-            // 3. 接收功率（线性）
-            const Pr = P * Math.pow(10, Lpc / 10);
-
-            // 4. 干扰功率
-            let Po = 0;
-            neighborStations.forEach(st => {
-                const dsto = Math.sqrt(Math.pow(userX - st.x, 2) + Math.pow(userY - st.y, 2)) * 0.01; // km
-                const Lps = pathLoss(dsto);
-                Po += P * Math.pow(10, Lps / 10);
-            });
-
-            // 5. SIR（dB）
-            if (Po === 0) return 30; // 没有干扰时，给个很高的SIR
-            return 10 * Math.log10(Pr / Po);
-        }
-
-        function updateStationCount() {
-            const placedStations = document.querySelectorAll('.base-station-container.placed');
-            const countElement = document.querySelector('.station-count');
-            const maxLimitMessage = document.querySelector('.max-limit-message');
-            const resourceStation = document.querySelector('.resource-pool .base-station-container');
-            
-            const count = placedStations.length;
-            countElement.textContent = `${count}/6`;
-            
-            if (count >= 6) {
-                maxLimitMessage.style.display = 'block';
-                if (resourceStation) resourceStation.setAttribute('draggable', 'false');
-            } else {
-                maxLimitMessage.style.display = 'none';
-                if (resourceStation) resourceStation.setAttribute('draggable', 'true');
-            }
-        }
-
-        function enterDemandPointMode() {
-            // ...原有代码...
-            document.getElementById('demandPointsCompleteButton').style.display = 'block';
-            console.log('进入需求点模式，显示需求点部署完毕按钮');
-        }
-
-        function analyzeDemandPoints() {
-            console.log('开始分析业务需求点');
-            
-            // 获取所有需求点和基站
-            const demandPoints = JSON.parse(localStorage.getItem('demandPointsData') || '[]');
-            const stations = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
-            
-            if (demandPoints.length === 0) {
-                alert('请先部署业务需求点！');
-                return;
-            }
-            
-            // 创建结果表格的HTML
-            let html = `
-                <table style="width:100%; border-collapse:collapse; margin-top:10px;">
-                    <thead>
-                        <tr style="background-color: rgba(52, 152, 219, 0.1);">
-                            <th style="padding:8px; border:1px solid #ddd;">编号</th>
-                            <th style="padding:8px; border:1px solid #ddd;">类型</th>
-                            <th style="padding:8px; border:1px solid #ddd;">距离(m)</th>
-                            <th style="padding:8px; border:1px solid #ddd;">SINR(dB)</th>
-                            <th style="padding:8px; border:1px solid #ddd;">MCS</th>
-                            <th style="padding:8px; border:1px solid #ddd;">上行需求(Mbps)</th>
-                            <th style="padding:8px; border:1px solid #ddd;">下行需求(Mbps)</th>
-                            <th style="padding:8px; border:1px solid #ddd;">上行可达(Mbps)</th>
-                            <th style="padding:8px; border:1px solid #ddd;">下行可达(Mbps)</th>
-                            <th style="padding:8px; border:1px solid #ddd;">结果</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-            `;
-            
-            demandPoints.forEach((dp, index) => {
-                // 1. 找最近基站
-                let minDist = Infinity;
-                let nearestStation = null;
-                stations.forEach(st => {
-                    const dx = (dp.x - (st.position.x + 60));
-                    const dy = (dp.y - (st.position.y + 60));
-                    const dist = Math.sqrt(dx*dx + dy*dy) * 10; // 转换为米
-                    if (dist < minDist) {
-                        minDist = dist;
-                        nearestStation = st;
-                    }
-                });
-                
-                // 2. 计算SINR
-                const neighborStations = stations
-                    .filter(st => st.id !== nearestStation.id)
-                    .map(st => ({
-                        x: st.position.x + 60,
-                        y: st.position.y + 60
-                    }));
-                
-                const sinr = calcSINR(
-                    dp.x, 
-                    dp.y, 
-                    nearestStation.position.x + 60, 
-                    nearestStation.position.y + 60, 
-                    neighborStations
-                );
-                
-                // 3. SINR → MCS
-                const mcs = sinrToMCS(sinr);
-                
-                // 4. 计算上下行可达速率
-                const uplinkSymbols = parseInt(nearestStation.symbolRatio.uplink);
-                const downlinkSymbols = parseInt(nearestStation.symbolRatio.downlink);
-                const achievableRateUplink = calcThroughput(mcs, uplinkSymbols);
-                const achievableRateDownlink = calcThroughput(mcs, downlinkSymbols);
-                
-                // 5. 获取上下行需求速率
-                const requiredRateUplink = parseFloat(dp.businessRateUplink || 0);
-                const requiredRateDownlink = parseFloat(dp.businessRateDownlink || 0);
-                
-                // 6. 比较需求速率和可达速率
-                const isUplinkSatisfied = achievableRateUplink >= requiredRateUplink;
-                const isDownlinkSatisfied = achievableRateDownlink >= requiredRateDownlink;
-                const isSatisfied = isUplinkSatisfied && isDownlinkSatisfied;
-                
-                // 添加到结果表格
-                html += `
-                    <tr>
-                        <td style="padding:8px; border:1px solid #ddd;">P${index + 1}</td>
-                        <td style="padding:8px; border:1px solid #ddd;">${dp.type === 'red' ? '高' : '低'}</td>
-                        <td style="padding:8px; border:1px solid #ddd;">${minDist.toFixed(2)}</td>
-                        <td style="padding:8px; border:1px solid #ddd;">${sinr.toFixed(2)}</td>
-                        <td style="padding:8px; border:1px solid #ddd;">${mcs}</td>
-                        <td style="padding:8px; border:1px solid #ddd;">${requiredRateUplink}</td>
-                        <td style="padding:8px; border:1px solid #ddd;">${requiredRateDownlink}</td>
-                        <td style="padding:8px; border:1px solid #ddd;">${achievableRateUplink.toFixed(2)}</td>
-                        <td style="padding:8px; border:1px solid #ddd;">${achievableRateDownlink.toFixed(2)}</td>
-                        <td style="padding:8px; border:1px solid #ddd; color:${isSatisfied ? 'green' : 'red'}">
-                            ${isSatisfied ? '满足' : '不满足'}
-                        </td>
-                    </tr>
-                `;
-            });
-            
-            html += '</tbody></table>';
-            
-            // 显示结果
-            const resultDiv = document.getElementById('demandPointsAnalysisResult');
-            resultDiv.innerHTML = html;
-            
-            console.log('分析完成，结果已显示');
-        }
-
-        // SINR到MCS的映射函数（示例值，需要根据实际情况调整）
-        function sinrToMCS(sinr) {
-            if (sinr >= 27.86) return 15;
-            else if (sinr >= 26.01) return 14;
-            else if (sinr >= 23.41) return 13;
-            else if (sinr >= 20.87) return 12;
-            else if (sinr >= 19.20) return 11;
-            else if (sinr >= 16.93) return 10;
-            else if (sinr >= 14.53) return 9;
-            else if (sinr >= 12.25) return 8;
-            else if (sinr >= 9.85) return 7;
-            else if (sinr >= 8.48) return 6;
-            else if (sinr >= 6.29) return 5;
-            else if (sinr >= 4.14) return 4;
-            else if (sinr >= 0.56) return 3;
-            else if (sinr >= -4.13) return 2;
-            else if (sinr >= -8.51) return 1;
-            else return 1;
-        }
-
-        // 修改calcThroughput函数，添加scheduledSymbols参数
-        function calcThroughput(mcs, scheduledSymbols) {
-            const nprb = 15; // 示例值
-            const dmrsPerPrb = 12;
-            const overhead = 0;
-            
-            // 计算 N(RE)
-            const nRE1 = scheduledSymbols * 12 - overhead - dmrsPerPrb;
-            const nRE = Math.min(156, nRE1) * nprb;
-            
-            // 根据MCS获取调制阶数和码率
-            const modulationOrder = Math.floor(mcs / 4) + 2;
-            const codeRate = (mcs % 4 + 1) * 0.25;
-            
-            // 计算信息位
-            const ninfo = nRE * codeRate * modulationOrder;
-            
-            // 简化的TBS计算
-            const tbs = Math.floor(ninfo * 0.8);
-            
-            // 返回Mbps
-            return tbs / 1024;
-        }
     </script>
 </body>
 </html>
