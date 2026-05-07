@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="zh">
+
 <head>
     <meta charset="UTF-8">
-    <title>时隙配置模拟</title>
+    <title>时隙配置模拟 - 智能符号填充与子帧高亮</title>
     <link rel="stylesheet" href="styles/common.css">
     <style>
+        /* 全局样式增强 */
         .container {
             display: grid;
             grid-template-columns: 1fr 1fr;
@@ -21,7 +23,7 @@
             border-radius: 20px;
             padding: 0 20px;
             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
-            color: white;
+            color: rgb(255, 255, 255);
             display: flex;
             align-items: center;
         }
@@ -87,15 +89,10 @@
             font-size: 13px;
         }
 
-        select:focus {
-            outline: none;
-            border-color: #3498db;
-        }
-
         .timeline {
-            background: rgba(236, 240, 241, 0.8);
+            background: rgba(251, 252, 252, 0.8);
             border: 1px solid rgba(189, 195, 199, 0.5);
-            height: 45px;
+            height: 40px;
             margin: 8px 0;
             position: relative;
             display: flex;
@@ -105,13 +102,28 @@
             border-radius: 10px;
         }
 
-        .timeline-divider {
-            position: absolute;
+        /* 子帧选中高亮样式 - 满足第二点需求 */
+        .subframe-block {
             height: 100%;
-            width: 1px;
-            background-color: #95a5a6;
-            border-left: 1px dashed #95a5a6;
-            pointer-events: none;
+            background-color: #cb68fc;
+            border-right: 1px solid #fff;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            box-sizing: border-box;
+        }
+
+        .subframe-block.selected {
+            background: linear-gradient(135deg, #fbffbe, #f9f09a);
+            box-shadow: 0 0 0 2px #ffd966, inset 0 1px 2px rgba(255, 255, 255, 0.4);
+            transform: scale(1.01);
+            border-radius: 6px;
+            position: relative;
+            z-index: 2;
+        }
+
+        .subframe-block:hover {
+            filter: brightness(0.95);
+            border-left: 2px solid gold;
         }
 
         .resource-pool {
@@ -136,19 +148,23 @@
             font-size: 12px;
             line-height: 25px;
             text-align: center;
+            border-radius: 6px;
+            user-select: none;
         }
 
         .downlink-time {
-            background-color: #ffff66;
+            background-color: #2196F3;
+            color: white;
         }
 
         .uplink-time {
-            background-color: #ff6666;
+            background-color: #99cc66;
+            color: #1e3c1a;
         }
 
-        .guard-time {
-            background-color: #FFFFFF;
-            border: 1px solid #a66a6a;
+        .flexible-time {
+            background-color: #ffa500;
+            color: white;
         }
 
         .downlink-symbol {
@@ -158,39 +174,51 @@
 
         .uplink-symbol {
             background-color: #99cc66;
+            color: #1e3c1a;
         }
 
         .gp-symbol {
             background-color: #FFFFFF;
-            border: 1px solid #000;
+            border: 1px solid #333;
+            color: #333;
         }
 
-        .subframe-block {
+        .symbol-slot {
+            flex: 1;
             height: 100%;
-            background-color: #cb68fc;
-            border-right: 1px solid #ccc;
+            margin: 0 1px;
+            border: 1px dashed #bbb;
+            background-color: #f9f9f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            box-sizing: border-box;
+            transition: background 0.1s;
         }
 
-        .timeline .block {
-            margin: 0;
+        .symbol-slot.drag-over {
+            background-color: #e0f0ff;
+        }
+
+        .symbol-slot .block {
+            width: 100%;
             height: 100%;
-            flex: none;
-        }
-
-        .calculator h2 {
-            font-size: 16px;
-            margin: 0 0 10px 0;
-        }
-
-        .calculator p {
-            font-size: 14px;
             margin: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: default;
+        }
+
+        /* 禁用样式提示 */
+        .symbol-slot.disabled-slot {
+            background-color: #e2e2e2;
+            cursor: not-allowed;
+            opacity: 0.7;
         }
 
         .config-complete-button {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
             padding: 10px 20px;
             background-color: #27ae60;
             color: white;
@@ -205,35 +233,35 @@
             background-color: #2ecc71;
         }
 
-        .config-complete-button:disabled {
-            background-color: #bdc3c7;
-            cursor: not-allowed;
+        .calculator h2 {
+            font-size: 16px;
+            margin: 0 0 10px 0;
         }
 
-        /* 固定符号槽位样式 */
-        .symbol-slot {
-            flex: 1;
-            height: 100%;
-            margin: 0 1px;
-            border: 1px dashed #bbb;
-            background-color: #f9f9f9;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            box-sizing: border-box;
+        .result-panel {
+            border: 2px solid #3498db;
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
         }
-        .symbol-slot .block {
-            width: 100%;
-            height: 100%;
-            margin: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            cursor: default;
+
+        .toast-message {
+            position: fixed;
+            top: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: #ffd966;
+            padding: 10px 20px;
+            border-radius: 30px;
+            z-index: 2000;
+            font-size: 14px;
+            pointer-events: none;
         }
     </style>
 </head>
+
 <body>
     <div class="nav-buttons">
         <a href="index.html" class="nav-button active">时隙配置</a>
@@ -250,64 +278,48 @@
             <div class="header">
                 <h2>时隙配置模拟器</h2>
                 <div class="config-area">
-                    <div>
-                        <label>单无线帧内子帧数：</label>
-                        <select id="subframeCount" onchange="updateTimelines()">
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                            <option value="5">5</option>
-                            <option value="6">6</option>
-                            <option value="7">7</option>
-                            <option value="8">8</option>
-                            <option value="9">9</option>
-                            <option value="10">10</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>子帧内时隙数：</label>
-                        <select id="slotCount" onchange="updateTimelines()">
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="4">4</option>
-                            <option value="8">8</option>
-                            <option value="16">16</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label>上行符号数（每时隙）：</label>
-                        <span id="uplinkSymbolsAuto" style="font-weight:bold;color:#27ae60;">0</span>
-                    </div>
-                    <div>
-                        <label>下行符号数（每时隙）：</label>
-                        <span id="downlinkSymbolsAuto" style="font-weight:bold;color:#2196F3;">0</span>
-                    </div>
+                    <div><label>单无线帧内子帧数：</label><select id="subframeCount" disabled>
+                            <option value="10" selected>10</option>
+                        </select></div>
+                    <div><label>子帧内时隙数：</label><select id="slotCount" disabled>
+                            <option value="1" selected>1</option>
+                        </select></div>
+                    <div><label>上行符号数（每时隙）：</label><span id="uplinkSymbolsAuto"
+                            style="font-weight:bold;color:#27ae60;">0</span></div>
+                    <div><label>下行符号数（每时隙）：</label><span id="downlinkSymbolsAuto"
+                            style="font-weight:bold;color:#2196F3;">0</span></div>
                 </div>
             </div>
 
             <div>
-                <h3>子帧</h3>
+                <h3>子帧 (点击子帧切换，高亮为当前选中)</h3>
                 <div class="timeline" id="subframe-timeline"></div>
 
-                <h3>时隙</h3>
+                <h3>时隙 (拖拽“上行时隙/下行时隙/灵活时隙”至此)</h3>
                 <div class="timeline" id="slot-timeline" ondrop="dropSlot(event)" ondragover="allowDrop(event)"></div>
 
-                <h3>符号（单时隙固定14符号，拖拽填充）</h3>
+                <h3>符号（单时隙固定14符号）<span id="symbolStatusNote"
+                        style="font-size:12px; color:#e67e22; margin-left:12px;"></span></h3>
                 <div class="timeline" id="symbol-timeline" style="display:flex; gap:2px;"></div>
             </div>
 
             <h3>资源池</h3>
             <div class="resource-pool">
-                <div class="block downlink-time" draggable="true" ondragstart="drag(event)" data-type="downlink-time">下行时隙</div>
-                <div class="block uplink-time" draggable="true" ondragstart="drag(event)" data-type="uplink-time">上行时隙</div>
-                <div class="block downlink-symbol" draggable="true" ondragstart="drag(event)" data-type="downlink-symbol">下行符号</div>
-                <div class="block uplink-symbol" draggable="true" ondragstart="drag(event)" data-type="uplink-symbol">上行符号</div>
+                <div class="block downlink-time" draggable="true" ondragstart="drag(event)" data-type="downlink-time">
+                    下行时隙</div>
+                <div class="block uplink-time" draggable="true" ondragstart="drag(event)" data-type="uplink-time">上行时隙
+                </div>
+                <div class="block flexible-time" draggable="true" ondragstart="drag(event)" data-type="flexible-time">
+                    灵活时隙</div>
+                <div class="block downlink-symbol" draggable="true" ondragstart="drag(event)"
+                    data-type="downlink-symbol">下行符号</div>
+                <div class="block uplink-symbol" draggable="true" ondragstart="drag(event)" data-type="uplink-symbol">
+                    上行符号</div>
                 <div class="block gp-symbol" draggable="true" ondragstart="drag(event)" data-type="gp-symbol">GP符号</div>
             </div>
 
             <div style="margin-top: 24px; text-align: right;">
-                <button id="configCompleteButton" class="config-complete-button" style="position:static;right:auto;bottom:auto;" onclick="saveAndReturn()">配置完毕</button>
+                <button id="configCompleteButton" class="config-complete-button" onclick="saveAndReturn()">配置完毕</button>
             </div>
         </div>
 
@@ -352,8 +364,9 @@
 
                 <div class="input-group">
                     <label class="input-label">
-                        N sh symb (时隙中分配给PDSCH/PUSCH的符号数) 
-                        <input type="number" class="input-field" id="scheduled-symbols" readonly style="background:#f0f0f0;">
+                        N sh symb (时隙中分配给PDSCH/PUSCH的符号数)
+                        <input type="number" class="input-field" id="scheduled-symbols" readonly
+                            style="background:#f0f0f0;">
                     </label>
                 </div>
 
@@ -384,7 +397,8 @@
                         <input type="number" class="input-field" value="438" id="code-rate">
                     </label>
                 </div>
-                <div class="result-panel" style="border: 2px solid #3498db; background-color: rgba(255, 255, 255, 0.9); border-radius: 10px; padding: 15px; margin-top: 20px;">
+                <div class="result-panel"
+                    style="border: 2px solid #3498db; background-color: rgba(255, 255, 255, 0.9); border-radius: 10px; padding: 15px; margin-top: 20px;">
                     <h3 style="color: #2c3e50; margin-bottom: 10px;">计算结果</h3>
                     <div class="result-item">
                         N(RE): <span class="result-value" id="nre-result">0</span>
@@ -401,92 +415,44 @@
                 </div>
             </div>
         </div>
-
-        <button id="deploymentCompleteButton" class="config-complete-button" style="display: none;" onclick="window.location.href='deploy.html'">部署完毕</button>
     </div>
 
     <script>
-        // ------------------ 通用函数 ------------------
-        function allowDrop(ev) {
-            ev.preventDefault();
+        // ---------- 全局数据结构 ----------
+        let subframeConfigs = Array(10).fill(null).map(() => ({ slotType: '', symbolConfig: Array(14).fill('') }));
+        let currentSubframeIndex = 0;
+
+        // DOM 元素
+        const subframeTimeline = document.getElementById('subframe-timeline');
+        const slotTimeline = document.getElementById('slot-timeline');
+        const symbolTimeline = document.getElementById('symbol-timeline');
+        const uplinkSymbolSpan = document.getElementById('uplinkSymbolsAuto');
+        const downlinkSymbolSpan = document.getElementById('downlinkSymbolsAuto');
+        const symbolStatusNote = document.getElementById('symbolStatusNote');
+
+        // ---------- 辅助函数 ----------
+        function allowDrop(e) { e.preventDefault(); }
+        function drag(e) { e.dataTransfer.setData("text", e.target.getAttribute('data-type')); }
+        function showMessage(msg, isError = false) {
+            let div = document.getElementById('dynamicToast');
+            if (!div) { div = document.createElement('div'); div.id = 'dynamicToast'; div.className = 'toast-message'; document.body.appendChild(div); }
+            div.textContent = msg;
+            div.style.backgroundColor = isError ? '#c0392b' : '#2c3e50';
+            div.style.opacity = '1';
+            setTimeout(() => div.style.opacity = '0', 2200);
         }
 
-        function drag(ev) {
-            ev.dataTransfer.setData("text", ev.target.getAttribute('data-type'));
+        // 获取当前时隙类型 (从时隙时间轴)
+        function getCurrentSlotType() {
+            const slotBlock = slotTimeline.querySelector('.block');
+            if (!slotBlock) return '';
+            if (slotBlock.classList.contains('downlink-time')) return 'downlink-time';
+            if (slotBlock.classList.contains('uplink-time')) return 'uplink-time';
+            if (slotBlock.classList.contains('flexible-time')) return 'flexible-time';
+            return '';
         }
 
-        // 时隙时间轴的拖放（保持原有逻辑）
-        function dropSlot(ev) {
-            ev.preventDefault();
-            const data = ev.dataTransfer.getData("text");
-            const timeline = ev.target.closest('.timeline');
-            if (!timeline || timeline.id !== 'slot-timeline') return;
-
-            const slotTypes = ['downlink-time', 'uplink-time'];
-            if (!slotTypes.includes(data)) {
-                showToast("只能在时隙时间轴放置时隙类型");
-                return;
-            }
-
-            const newBlock = document.createElement('div');
-            newBlock.className = `block ${data}`;
-            newBlock.textContent = data === 'downlink-time' ? '下行' : '上行';
-
-            newBlock.addEventListener('contextmenu', function(e) {
-                e.preventDefault();
-                if (confirm('确定要删除该时隙区块吗？')) {
-                    newBlock.remove();
-                    updateSymbolCount(); // 时隙删除不会影响符号数，但保留调用以统一
-                }
-            });
-
-            const slotCount = parseInt(document.getElementById('slotCount').value);
-            const timelineWidth = timeline.offsetWidth;
-            const blockWidth = timelineWidth / slotCount;
-            newBlock.style.width = `${blockWidth}px`;
-
-            const blocks = Array.from(timeline.children).filter(child => child.classList && child.classList.contains('block'));
-            if (blocks.length < slotCount) {
-                timeline.appendChild(newBlock);
-            } else {
-                showToast("时隙槽位已满，请先删除再添加");
-            }
-        }
-
-        // 符号时间轴的拖放（固定14个槽位，每个槽位独立放置）
-        function initSymbolSlots() {
-            const symbolTimeline = document.getElementById('symbol-timeline');
-            symbolTimeline.innerHTML = '';
-            for (let i = 0; i < 14; i++) {
-                const slot = document.createElement('div');
-                slot.className = 'symbol-slot';
-                slot.setAttribute('data-index', i);
-                slot.addEventListener('dragover', allowDrop);
-                slot.addEventListener('drop', function(e) {
-                    e.preventDefault();
-                    const data = e.dataTransfer.getData("text");
-                    if (!['downlink-symbol', 'uplink-symbol', 'gp-symbol'].includes(data)) return;
-                    // 清空当前槽位原有内容
-                    slot.innerHTML = '';
-                    const symbolDiv = document.createElement('div');
-                    symbolDiv.className = `block ${data}`;
-                    symbolDiv.textContent = data === 'downlink-symbol' ? '下行' : (data === 'uplink-symbol' ? '上行' : 'GP');
-                    // 右键删除
-                    symbolDiv.addEventListener('contextmenu', function(ev) {
-                        ev.preventDefault();
-                        if (confirm('确定要删除该符号吗？')) {
-                            slot.innerHTML = '';
-                            updateSymbolCount();
-                        }
-                    });
-                    slot.appendChild(symbolDiv);
-                    updateSymbolCount();
-                });
-                symbolTimeline.appendChild(slot);
-            }
-        }
-
-        // 更新符号统计（每时隙上下行符号数）并联动TBS计算器的符号数输入框
+        // 更新符号计数 & TBS联动
         function updateSymbolCount() {
             const slots = document.querySelectorAll('#symbol-timeline .symbol-slot');
             let uplink = 0, downlink = 0;
@@ -497,25 +463,167 @@
                     if (block.classList.contains('downlink-symbol')) downlink++;
                 }
             });
-            document.getElementById('uplinkSymbolsAuto').textContent = uplink;
-            document.getElementById('downlinkSymbolsAuto').textContent = downlink;
-
-            // 更新TBS计算器的符号数输入框（只读，自动计算总符号数）
-            const totalSymbols = uplink + downlink;
+            uplinkSymbolSpan.textContent = uplink;
+            downlinkSymbolSpan.textContent = downlink;
             const scheduledInput = document.getElementById('scheduled-symbols');
-            if (scheduledInput) {
-                scheduledInput.value = totalSymbols;
-                updateResults(); // 重新计算TBS
-            }
+            if (scheduledInput) { scheduledInput.value = uplink + downlink; updateResults(); }
         }
 
-        // 更新子帧与时隙时间轴（时隙时间轴重置，符号时间轴保持不变）
-        function updateTimelines() {
-            const subframeCount = parseInt(document.getElementById('subframeCount').value);
-            const slotCount = parseInt(document.getElementById('slotCount').value);
+        // 从DOM读取当前符号配置 (返回长度为14的数组)
+        function getCurrentSymbolConfigFromDOM() {
+            const slots = document.querySelectorAll('#symbol-timeline .symbol-slot');
+            const config = [];
+            slots.forEach(slot => {
+                const block = slot.querySelector('.block');
+                if (!block) config.push('');
+                else if (block.classList.contains('downlink-symbol')) config.push('downlink-symbol');
+                else if (block.classList.contains('uplink-symbol')) config.push('uplink-symbol');
+                else if (block.classList.contains('gp-symbol')) config.push('gp-symbol');
+                else config.push('');
+            });
+            return config;
+        }
 
-            // 子帧时间轴
-            const subframeTimeline = document.getElementById('subframe-timeline');
+        // 保存当前子帧配置 (智能处理上下行强制全符号)
+        function saveCurrentSubframeConfig() {
+            const slotType = getCurrentSlotType();
+            let symbolConfig = [];
+            if (slotType === 'downlink-time') {
+                symbolConfig = Array(14).fill('downlink-symbol');
+            } else if (slotType === 'uplink-time') {
+                symbolConfig = Array(14).fill('uplink-symbol');
+            } else if (slotType === 'flexible-time') {
+                symbolConfig = getCurrentSymbolConfigFromDOM();
+            } else {
+                symbolConfig = Array(14).fill('');
+            }
+            subframeConfigs[currentSubframeIndex] = { slotType, symbolConfig };
+        }
+
+        // 重建符号时间轴 (完全根据配置和可编辑性构建)
+        function rebuildSymbolTimeline(symbolConfigArray, editable) {
+            symbolTimeline.innerHTML = '';
+            for (let i = 0; i < 14; i++) {
+                const slotDiv = document.createElement('div');
+                slotDiv.className = 'symbol-slot';
+                if (!editable) slotDiv.classList.add('disabled-slot');
+                slotDiv.setAttribute('data-index', i);
+                // 拖拽放置事件: 仅当 editable 且 当前时隙为灵活时隙时允许 (在drop中二次检查)
+                slotDiv.addEventListener('dragover', allowDrop);
+                slotDiv.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    const currentSlotTypeGlobal = getCurrentSlotType();
+                    if (!editable || currentSlotTypeGlobal !== 'flexible-time') {
+                        showMessage('当前时隙非灵活时隙，无法配置符号！只有灵活时隙允许调整符号', true);
+                        return;
+                    }
+                    const data = e.dataTransfer.getData("text");
+                    if (!['downlink-symbol', 'uplink-symbol', 'gp-symbol'].includes(data)) return;
+                    // 清空当前槽位并放置新符号
+                    slotDiv.innerHTML = '';
+                    const symbolDiv = createSymbolBlock(data);
+                    slotDiv.appendChild(symbolDiv);
+                    // 更新配置存储
+                    const newConfig = getCurrentSymbolConfigFromDOM();
+                    subframeConfigs[currentSubframeIndex].symbolConfig = newConfig;
+                    updateSymbolCount();
+                });
+                // 根据配置填充内容
+                const symbolType = symbolConfigArray[i];
+                if (symbolType) {
+                    const symbolDiv = createSymbolBlock(symbolType, editable);
+                    slotDiv.appendChild(symbolDiv);
+                }
+                symbolTimeline.appendChild(slotDiv);
+            }
+            updateSymbolCount();
+        }
+
+        // 创建符号块 (右键删除仅当可编辑+灵活时隙)
+        function createSymbolBlock(type, isEditableContext = true) {
+            const div = document.createElement('div');
+            div.className = `block ${type}`;
+            if (type === 'downlink-symbol') div.textContent = '下行';
+            else if (type === 'uplink-symbol') div.textContent = '上行';
+            else if (type === 'gp-symbol') div.textContent = 'GP';
+            div.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                const parentSlot = div.parentElement;
+                const currentSlotType = getCurrentSlotType();
+                if (currentSlotType !== 'flexible-time') {
+                    showMessage('非灵活时隙，符号不可删除/修改', true);
+                    return;
+                }
+                if (parentSlot && parentSlot.classList.contains('symbol-slot') && confirm('删除该符号配置？')) {
+                    parentSlot.innerHTML = '';
+                    const newCfg = getCurrentSymbolConfigFromDOM();
+                    subframeConfigs[currentSubframeIndex].symbolConfig = newCfg;
+                    updateSymbolCount();
+                }
+            });
+            return div;
+        }
+
+        // 加载子帧配置 (完全根据slotType重建UI)
+        function loadSubframeConfig(index) {
+            const cfg = subframeConfigs[index];
+            const slotType = cfg.slotType;
+            // 1. 重建时隙区域
+            slotTimeline.innerHTML = '';
+            if (slotType) {
+                const slotBlock = document.createElement('div');
+                slotBlock.className = `block ${slotType}`;
+                slotBlock.style.width = '100%';
+                if (slotType === 'downlink-time') slotBlock.textContent = '下行';
+                else if (slotType === 'uplink-time') slotBlock.textContent = '上行';
+                else if (slotType === 'flexible-time') slotBlock.textContent = '灵活';
+                slotBlock.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    if (confirm('删除时隙配置？删除后符号将清空并不可编辑')) {
+                        slotTimeline.innerHTML = '';
+                        subframeConfigs[currentSubframeIndex] = { slotType: '', symbolConfig: Array(14).fill('') };
+                        loadSubframeConfig(currentSubframeIndex);
+                    }
+                });
+                slotTimeline.appendChild(slotBlock);
+            }
+            // 2. 根据时隙类型决定符号轴构建模式
+            let editableFlag = (slotType === 'flexible-time');
+            let symbolArray = [];
+            if (slotType === 'downlink-time') {
+                symbolArray = Array(14).fill('downlink-symbol');
+                symbolStatusNote.innerText = '🔒 当前子帧为【下行时隙】, 符号固定全下行，不可编辑';
+            } else if (slotType === 'uplink-time') {
+                symbolArray = Array(14).fill('uplink-symbol');
+                symbolStatusNote.innerText = '🔒 当前子帧为【上行时隙】, 符号固定全上行，不可编辑';
+            } else if (slotType === 'flexible-time') {
+                symbolArray = cfg.symbolConfig && cfg.symbolConfig.length === 14 ? cfg.symbolConfig : Array(14).fill('');
+                symbolStatusNote.innerText = '✏️ 灵活时隙，可拖拽符号自由配置 (右键删除符号)';
+            } else {
+                symbolArray = Array(14).fill('');
+                symbolStatusNote.innerText = '⬅️ 请先拖拽时隙类型 (灵活时隙才可配置符号)';
+                editableFlag = false;
+            }
+            rebuildSymbolTimeline(symbolArray, editableFlag);
+        }
+
+        // 保存当前再加载新子帧 (切换时调用)
+        function selectSubframe(index) {
+            if (currentSubframeIndex === index && subframeTimeline.querySelector('.subframe-block.selected')) return;
+            saveCurrentSubframeConfig();         // 保存旧子帧配置
+            currentSubframeIndex = index;
+            // 更新子帧高亮样式
+            const allSubBlocks = document.querySelectorAll('#subframe-timeline .subframe-block');
+            allSubBlocks.forEach((block, idx) => {
+                if (idx === index) block.classList.add('selected');
+                else block.classList.remove('selected');
+            });
+            loadSubframeConfig(index);
+        }
+
+        // 初始化子帧时间轴
+        function updateTimelines() {
+            const subframeCount = 10;
             subframeTimeline.innerHTML = '';
             for (let i = 0; i < subframeCount; i++) {
                 const block = document.createElement('div');
@@ -523,254 +631,156 @@
                 block.style.width = `${100 / subframeCount}%`;
                 block.style.height = '100%';
                 block.style.float = 'left';
+                block.setAttribute('data-subframe-index', i);
+                block.addEventListener('click', (function (idx) { return function () { selectSubframe(idx); }; })(i));
                 subframeTimeline.appendChild(block);
             }
-
-            // 时隙时间轴：清空并添加分割线（不预先放置块，由用户拖拽）
-            const slotTimeline = document.getElementById('slot-timeline');
-            slotTimeline.innerHTML = '';
-            for (let i = 1; i < slotCount; i++) {
-                const divider = document.createElement('div');
-                divider.className = 'timeline-divider';
-                divider.style.left = `${(i * 100) / slotCount}%`;
-                slotTimeline.appendChild(divider);
-            }
-            // 符号时间轴已经固定初始化，不再重建（避免丢失配置）
-            // 但需确保符号槽位存在（首次加载时调用initSymbolSlots）
-            if (document.querySelectorAll('#symbol-timeline .symbol-slot').length === 0) {
-                initSymbolSlots();
-            }
-            updateSymbolCount();
+            // 加载第0个子帧
+            selectSubframe(0);
         }
 
-        // 提示信息
-        function showToast(message) {
-            let toast = document.getElementById('toast');
-            if (!toast) {
-                toast = document.createElement('div');
-                toast.id = 'toast';
-                document.body.appendChild(toast);
+        // 拖拽时隙到 slot-timeline 核心（智能填充或置空符号）
+        window.dropSlot = function (ev) {
+            ev.preventDefault();
+            const data = ev.dataTransfer.getData("text");
+            const targetTimeline = ev.target.closest('.timeline');
+            if (!targetTimeline || targetTimeline.id !== 'slot-timeline') return;
+            const allowedSlotTypes = ['downlink-time', 'uplink-time', 'flexible-time'];
+            if (!allowedSlotTypes.includes(data)) {
+                showMessage('请拖拽“下行时隙/上行时隙/灵活时隙”至时隙区域', true);
+                return;
             }
-            Object.assign(toast.style, {
-                position: 'fixed', top: '80px', left: '50%', transform: 'translateX(-50%)',
-                background: 'rgba(114, 116, 154, 0.9)', color: 'white', padding: '10px 20px',
-                borderRadius: '4px', zIndex: '1000', transition: 'opacity 0.3s', fontSize: '14px'
-            });
-            toast.textContent = message;
-            toast.style.opacity = '1';
-            setTimeout(() => toast.style.opacity = '0', 3000);
-        }
+            // 保存当前配置
+            saveCurrentSubframeConfig();
+            const newSlotType = data;
+            // 更新当前子帧的时隙类型
+            subframeConfigs[currentSubframeIndex].slotType = newSlotType;
+            // 如果是下行/上行时隙：自动填充全符号配置
+            if (newSlotType === 'downlink-time') {
+                subframeConfigs[currentSubframeIndex].symbolConfig = Array(14).fill('downlink-symbol');
+                showMessage('下行时隙已部署，符号时间轴自动填充全下行符号（不可修改）');
+            } else if (newSlotType === 'uplink-time') {
+                subframeConfigs[currentSubframeIndex].symbolConfig = Array(14).fill('uplink-symbol');
+                showMessage('上行时隙已部署，符号时间轴自动填充全上行符号（不可修改）');
+            } else if (newSlotType === 'flexible-time') {
+                // 灵活时隙: 保留原有符号配置（若无则全部清空待配置）
+                const existingCfg = subframeConfigs[currentSubframeIndex].symbolConfig;
+                if (!existingCfg || existingCfg.every(s => s === '')) {
+                    subframeConfigs[currentSubframeIndex].symbolConfig = Array(14).fill('');
+                }
+                showMessage('灵活时隙已部署，可自由拖拽符号进行配置');
+            }
+            // 重新加载当前子帧刷新UI
+            loadSubframeConfig(currentSubframeIndex);
+        };
 
-        // ------------------ TBS 计算 ------------------
+        // ------------- TBS计算逻辑 -------------
         function updateResults() {
             const mcsIndex = parseInt(document.getElementById('mcs-number').value);
             const subcarrierMu = parseInt(document.getElementById('subcarrier-mu').value);
             const nprb = parseInt(document.getElementById('nprb').value);
-            const scheduledSymbols = parseInt(document.getElementById('scheduled-symbols').value);
+            const scheduledSymbols = parseInt(document.getElementById('scheduled-symbols').value) || 0;
             const dmrsPerPrb = parseInt(document.getElementById('dmrs-per-prb').value);
             const overhead = parseInt(document.getElementById('overhead').value);
             const mimolayers = parseInt(document.getElementById('mimo-layers').value);
-
-            const mcsTable = [
-                { Qm: 2, R: 120 }, { Qm: 2, R: 193 }, { Qm: 2, R: 308 }, { Qm: 2, R: 449 },
-                { Qm: 2, R: 602 }, { Qm: 2, R: 378 }, { Qm: 2, R: 490 }, { Qm: 2, R: 616 },
-                { Qm: 2, R: 466 }, { Qm: 2, R: 567 }, { Qm: 4, R: 438 }, { Qm: 4, R: 466 },
-                { Qm: 4, R: 567 }, { Qm: 4, R: 616 }, { Qm: 6, R: 666 }, { Qm: 6, R: 719 },
-                { Qm: 6, R: 772 }, { Qm: 6, R: 822 }, { Qm: 6, R: 873 }, { Qm: 6, R: 910 },
-                { Qm: 8, R: 948 }
-            ];
+            const mcsTable = [{ Qm: 2, R: 120 }, { Qm: 2, R: 193 }, { Qm: 2, R: 308 }, { Qm: 2, R: 449 }, { Qm: 2, R: 602 }, { Qm: 2, R: 378 }, { Qm: 2, R: 490 }, { Qm: 2, R: 616 }, { Qm: 2, R: 466 }, { Qm: 2, R: 567 }, { Qm: 4, R: 438 }, { Qm: 4, R: 466 }, { Qm: 4, R: 567 }, { Qm: 4, R: 616 }, { Qm: 6, R: 666 }, { Qm: 6, R: 719 }, { Qm: 6, R: 772 }, { Qm: 6, R: 822 }, { Qm: 6, R: 873 }, { Qm: 6, R: 910 }, { Qm: 8, R: 948 }];
             let Qm = 6, R = 438;
-            if (mcsIndex >= 0 && mcsIndex < mcsTable.length) {
-                Qm = mcsTable[mcsIndex].Qm;
-                R = mcsTable[mcsIndex].R;
-            }
+            if (mcsIndex >= 0 && mcsIndex < mcsTable.length) { Qm = mcsTable[mcsIndex].Qm; R = mcsTable[mcsIndex].R; }
             document.getElementById('modulation-order').value = Qm;
             document.getElementById('code-rate').value = R;
-
             const nRE1 = scheduledSymbols * 12 - overhead - dmrsPerPrb;
             const nRE = Math.min(156, nRE1) * nprb;
             document.getElementById('nre-result').textContent = nRE;
-
             const ninfo = nRE * (R / 1024) * Qm;
             document.getElementById('ninfo-result').textContent = ninfo.toFixed(4);
-
             let tbs;
             if (ninfo <= 3824) {
                 const n = Math.max(3, Math.floor(Math.log2(ninfo) - 6));
                 const ninfo1 = Math.max(24, Math.pow(2, n) * Math.floor(ninfo / Math.pow(2, n)));
-                const tbs_table = [24,32,40,48,56,64,72,80,88,96,104,112,120,128,136,144,152,160,168,176,184,192,208,240,256,272,280,304,320,336,352,368,384,408,432,456,480,504,528,552,576,608,640,672,704,736,768,808,848,928,984,1032,1064,1128,1160,1192,1224,1256,1288,1320,1352,1416,1480,1544,1608,1672,1736,1800,1864,1928,2024,2088,2152,2216,2280,2408,2472,2536,2600,2664,2728,2792,2856,2976,3104,3240,3368,3496,3624,3752,3824];
+                const tbs_table = [24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 104, 112, 120, 128, 136, 144, 152, 160, 168, 176, 184, 192, 208, 240, 256, 272, 280, 304, 320, 336, 352, 368, 384, 408, 432, 456, 480, 504, 528, 552, 576, 608, 640, 672, 704, 736, 768, 808, 848, 928, 984, 1032, 1064, 1128, 1160, 1192, 1224, 1256, 1288, 1320, 1352, 1416, 1480, 1544, 1608, 1672, 1736, 1800, 1864, 1928, 2024, 2088, 2152, 2216, 2280, 2408, 2472, 2536, 2600, 2664, 2728, 2792, 2856, 2976, 3104, 3240, 3368, 3496, 3624, 3752, 3824];
                 tbs = 24;
-                for (let i = 0; i < tbs_table.length; i++) {
-                    if (ninfo1 >= tbs_table[i]) tbs = tbs_table[i];
-                    else break;
-                }
+                for (let val of tbs_table) { if (ninfo1 >= val) tbs = val; else break; }
             } else {
                 const n = Math.floor(Math.log2(ninfo - 24)) - 5;
                 const ninfo1 = Math.max(3824, Math.pow(2, n) * Math.round((ninfo - 24) / Math.pow(2, n)));
-                if (R <= 256) {
-                    const C = Math.floor((ninfo + 24) / 3816);
-                    tbs = 8 * C * Math.ceil((ninfo + 24) / (8 * C));
-                } else {
-                    if (ninfo > 8424) {
-                        const C = Math.floor((ninfo + 24) / 8424);
-                        tbs = 8 * C * Math.ceil((ninfo + 24) / (8 * C));
-                    } else {
-                        tbs = 8 * Math.ceil((ninfo + 24) / 8) - 24;
-                    }
-                }
+                if (R <= 256) { const C = Math.floor((ninfo + 24) / 3816); tbs = 8 * C * Math.ceil((ninfo + 24) / (8 * C)); }
+                else { if (ninfo > 8424) { const C = Math.floor((ninfo + 24) / 8424); tbs = 8 * C * Math.ceil((ninfo + 24) / (8 * C)); } else { tbs = 8 * Math.ceil((ninfo + 24) / 8) - 24; } }
             }
             document.getElementById('tbs-result').textContent = tbs;
             const throughput = mimolayers * Math.pow(2, subcarrierMu) * tbs * 1000 / 1024 / 1024;
             document.getElementById('throughput-result').textContent = throughput.toFixed(3);
         }
 
-        // ------------------ 保存配置 ------------------
+        // 保存整体配置到localStorage
         function saveAndReturn() {
+            saveCurrentSubframeConfig();
             const selectedStationId = localStorage.getItem('selectedStationId');
-            if (!selectedStationId) {
-                alert('未找到选中的基站！');
-                return;
-            }
-
-            const uplinkSymbols = parseInt(document.getElementById('uplinkSymbolsAuto').textContent);
-            const downlinkSymbols = parseInt(document.getElementById('downlinkSymbolsAuto').textContent);
-            const subframeCount = document.getElementById('subframeCount').value;
-            const slotCount = document.getElementById('slotCount').value;
-
-            // 获取时隙配置（时隙时间轴中的块顺序）
-            const slotConfig = [];
-            const slotTimeline = document.getElementById('slot-timeline');
-            Array.from(slotTimeline.children).forEach(child => {
-                if (child.classList && child.classList.contains('block')) {
-                    if (child.classList.contains('downlink-time')) slotConfig.push('downlink');
-                    else if (child.classList.contains('uplink-time')) slotConfig.push('uplink');
-                }
+            if (!selectedStationId) { alert('未找到选中的基站！'); return; }
+            const uplinkSymbols = parseInt(uplinkSymbolSpan.textContent);
+            const downlinkSymbols = parseInt(downlinkSymbolSpan.textContent);
+            const subframeCount = 10;
+            const slotCount = 1;
+            // 收集所有子帧的时隙配置 (简化只存储每个子帧的类型)
+            const slotConfigPerSubframe = subframeConfigs.map(cfg => {
+                if (cfg.slotType === 'downlink-time') return 'downlink';
+                if (cfg.slotType === 'uplink-time') return 'uplink';
+                if (cfg.slotType === 'flexible-time') return 'flexible';
+                return '';
             });
-
-            // 获取符号配置（14个槽位，按顺序记录）
-            const symbolConfig = [];
-            const slots = document.querySelectorAll('#symbol-timeline .symbol-slot');
-            slots.forEach(slot => {
-                const block = slot.querySelector('.block');
-                if (block) {
-                    if (block.classList.contains('downlink-symbol')) symbolConfig.push('downlink');
-                    else if (block.classList.contains('uplink-symbol')) symbolConfig.push('uplink');
-                    else if (block.classList.contains('gp-symbol')) symbolConfig.push('guard');
-                    else symbolConfig.push('');
-                } else {
-                    symbolConfig.push('');
-                }
-            });
-
+            const symbolConfigPerSubframe = subframeConfigs.map(cfg => cfg.symbolConfig);
             try {
                 let stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
-                const stationIndex = stationsConfig.findIndex(station => station.id === selectedStationId);
-                if (stationIndex !== -1) {
-                    const existingConfig = stationsConfig[stationIndex];
-                    stationsConfig[stationIndex] = {
-                        ...existingConfig,
-                        symbolRatio: { uplink: uplinkSymbols, downlink: downlinkSymbols },
-                        subframeCount, slotCount, slotConfig, symbolConfig,
-                        lastUpdated: new Date().toISOString()
-                    };
-                } else {
-                    stationsConfig.push({
-                        id: selectedStationId,
-                        symbolRatio: { uplink: uplinkSymbols, downlink: downlinkSymbols },
-                        subframeCount, slotCount, slotConfig, symbolConfig,
-                        lastUpdated: new Date().toISOString()
-                    });
-                }
+                const stationIndex = stationsConfig.findIndex(s => s.id === selectedStationId);
+                const newStationData = {
+                    id: selectedStationId,
+                    symbolRatio: { uplink: uplinkSymbols, downlink: downlinkSymbols },
+                    subframeCount, slotCount,
+                    slotConfig: slotConfigPerSubframe,
+                    symbolConfig: symbolConfigPerSubframe,
+                    lastUpdated: new Date().toISOString()
+                };
+                if (stationIndex !== -1) stationsConfig[stationIndex] = { ...stationsConfig[stationIndex], ...newStationData };
+                else stationsConfig.push(newStationData);
                 localStorage.setItem('stationsConfig', JSON.stringify(stationsConfig));
-                console.log('配置已保存');
-                setTimeout(() => window.location.replace('./deploy.html'), 100);
-            } catch (error) {
-                console.error('保存配置时出错:', error);
-                alert('保存配置时出错，请重试！');
-            }
+                showMessage('配置已保存，即将跳转部署页面');
+                setTimeout(() => window.location.replace('./deploy.html'), 500);
+            } catch (e) { alert('保存失败'); }
         }
 
-        // ------------------ 页面初始化和计算模式支持 ------------------
-        document.addEventListener('DOMContentLoaded', function () {
-            // 固定符号时间轴
-            initSymbolSlots();
-
-            // 初始化子帧、时隙时间轴
-            updateTimelines();
-
-            // 监听符号配置变化时更新TBS计算器的符号数
-            const observer = new MutationObserver(() => updateSymbolCount());
-            observer.observe(document.getElementById('symbol-timeline'), { childList: true, subtree: true });
-
-            // 显示当前基站ID
-            const selectedStationId = localStorage.getItem('selectedStationId');
-            if (selectedStationId) {
-                const idSpan = document.getElementById('currentStationId');
-                if (idSpan) idSpan.textContent = '当前配置基站ID：' + selectedStationId;
-            }
-
-            // 其他输入框变化时更新计算结果
-            document.querySelectorAll('.input-field, select').forEach(input => {
-                input.addEventListener('change', updateResults);
+        // 监听输入框的变化
+        function bindCalcEvents() {
+            document.querySelectorAll('.input-field, select, #scheduled-symbols').forEach(el => {
+                if (el.id !== 'scheduled-symbols') el.addEventListener('input', updateResults);
+                else el.addEventListener('change', updateResults);
             });
+        }
 
-            // 初始计算一次
+        // 页面启动
+        document.addEventListener('DOMContentLoaded', () => {
+            updateTimelines();
+            bindCalcEvents();
             updateResults();
-
-            // 处理跨页面计算模式（从deploy.html调用）
-            const urlParams = new URLSearchParams(window.location.search);
-            const mode = urlParams.get('mode');
-            const requestKey = urlParams.get('requestKey');
-            if (mode === 'calculate') {
-                const calculationRequest = JSON.parse(localStorage.getItem(requestKey || 'calculationRequest') || '{}');
-                if (calculationRequest.status === 'pending') {
-                    try {
-                        const sinr = calculationRequest.sinr;
-                        let mcs;
-                        if (sinr >= 27.86) mcs = 15;
-                        else if (sinr >= 26.01) mcs = 14;
-                        else if (sinr >= 23.41) mcs = 13;
-                        else if (sinr >= 20.87) mcs = 12;
-                        else if (sinr >= 19.20) mcs = 11;
-                        else if (sinr >= 16.93) mcs = 10;
-                        else if (sinr >= 14.53) mcs = 9;
-                        else if (sinr >= 12.25) mcs = 8;
-                        else if (sinr >= 9.85) mcs = 7;
-                        else if (sinr >= 8.48) mcs = 6;
-                        else if (sinr >= 6.29) mcs = 5;
-                        else if (sinr >= 4.14) mcs = 4;
-                        else if (sinr >= 0.56) mcs = 3;
-                        else if (sinr >= -4.13) mcs = 2;
-                        else if (sinr >= -8.51) mcs = 1;
-                        else mcs = 1;
-
-                        document.getElementById('mcs-number').value = mcs;
-                        document.getElementById('nprb').value = '273';
-                        document.getElementById('scheduled-symbols').value = calculationRequest.symbolCount;
-                        document.getElementById('dmrs-per-prb').value = '2';
-                        document.getElementById('overhead').value = '0';
-                        updateResults();
-
-                        const throughput = parseFloat(document.getElementById('throughput-result').textContent);
-                        const result = {
-                            requestId: calculationRequest.requestId,
-                            status: 'completed',
-                            achievableRate: throughput
-                        };
-                        localStorage.setItem('calculationResult', JSON.stringify(result));
-                    } catch (error) {
-                        localStorage.setItem('calculationResult', JSON.stringify({
-                            requestId: calculationRequest.requestId,
-                            status: 'error',
-                            error: error.message
-                        }));
+            const stationId = localStorage.getItem('selectedStationId');
+            if (stationId) document.getElementById('currentStationId').innerText = '当前配置基站ID：' + stationId;
+            // 如果之前已有部分配置尝试从localstorage加载
+            const savedConfigRaw = localStorage.getItem('stationsConfig');
+            if (savedConfigRaw && stationId) {
+                const all = JSON.parse(savedConfigRaw);
+                const myConf = all.find(s => s.id === stationId);
+                if (myConf && myConf.slotConfig && myConf.slotConfig.length === 10) {
+                    for (let i = 0; i < 10; i++) {
+                        let slotTypeMap = '';
+                        if (myConf.slotConfig[i] === 'downlink') slotTypeMap = 'downlink-time';
+                        else if (myConf.slotConfig[i] === 'uplink') slotTypeMap = 'uplink-time';
+                        else if (myConf.slotConfig[i] === 'flexible') slotTypeMap = 'flexible-time';
+                        let symCfg = (myConf.symbolConfig && myConf.symbolConfig[i]) ? myConf.symbolConfig[i] : Array(14).fill('');
+                        subframeConfigs[i] = { slotType: slotTypeMap, symbolConfig: symCfg };
                     }
+                    selectSubframe(currentSubframeIndex);
                 }
-                // 不继续显示页面内容
-                document.body.innerHTML = '<div style="text-align:center;margin-top:50px;">计算完成，窗口可关闭</div>';
-                return;
             }
         });
     </script>
 </body>
+
 </html>
