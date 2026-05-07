@@ -711,6 +711,7 @@
             document.getElementById('throughput-result').textContent = throughput.toFixed(3);
         }
 
+        
         // 保存整体配置到localStorage
         function saveAndReturn() {
             saveCurrentSubframeConfig();
@@ -762,7 +763,7 @@
             updateResults();
             const stationId = localStorage.getItem('selectedStationId');
             if (stationId) document.getElementById('currentStationId').innerText = '当前配置基站ID：' + stationId;
-            // 如果之前已有部分配置尝试从localstorage加载
+           
             const savedConfigRaw = localStorage.getItem('stationsConfig');
             if (savedConfigRaw && stationId) {
                 const all = JSON.parse(savedConfigRaw);
