@@ -731,7 +731,22 @@
             try {
                 let stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
                 const stationIndex = stationsConfig.findIndex(s => s.id === selectedStationId);
+                // 合并原有基站的所有字段，避免丢失 position/antennaConfig 等
+                let oldStation = stationIndex !== -1 ? stationsConfig[stationIndex] : {};
+                // 如果 position 字段缺失，尝试补全
+                if (!oldStation.position) {
+                    // 尝试从 localStorage 其他基站数据中查找
+                    const backup = stationsConfig.find(s => s.id === selectedStationId && s.position);
+                    if (backup && backup.position) {
+                        oldStation.position = backup.position;
+                    }
+                }
+                // 如果还没有 position，给个默认值，防止渲染报错
+                if (!oldStation.position) {
+                    oldStation.position = { x: 0, y: 0 };
+                }
                 const newStationData = {
+                    ...oldStation,
                     id: selectedStationId,
                     symbolRatio: { uplink: uplinkSymbols, downlink: downlinkSymbols },
                     subframeCount, slotCount,
@@ -739,7 +754,7 @@
                     symbolConfig: symbolConfigPerSubframe,
                     lastUpdated: new Date().toISOString()
                 };
-                if (stationIndex !== -1) stationsConfig[stationIndex] = { ...stationsConfig[stationIndex], ...newStationData };
+                if (stationIndex !== -1) stationsConfig[stationIndex] = newStationData;
                 else stationsConfig.push(newStationData);
                 localStorage.setItem('stationsConfig', JSON.stringify(stationsConfig));
                 showMessage('配置已保存，即将跳转部署页面');
@@ -755,8 +770,45 @@
             });
         }
 
+        /**
+         * deploy.html 中隐藏 iframe 调用：根据 requestKey 读取计算请求，用当前 TBS 公式算出可达速率并写回 calculationResult。
+         * 请求格式见 deploy.html：{ requestId, status, symbolCount, sinr }
+         */
+        function fulfillThroughputCalculationRequest(requestKey) {
+            try {
+                const raw = localStorage.getItem(requestKey);
+                if (!raw) {
+                    localStorage.setItem('calculationResult', JSON.stringify({ status: 'error', message: '缺少计算请求数据' }));
+                    return;
+                }
+                const req = JSON.parse(raw);
+                if (!req.requestId) {
+                    localStorage.setItem('calculationResult', JSON.stringify({ status: 'error', message: '缺少 requestId' }));
+                    return;
+                }
+                const sym = Math.max(0, parseInt(req.symbolCount, 10) || 0);
+                const sched = document.getElementById('scheduled-symbols');
+                if (sched) sched.value = String(sym);
+                updateResults();
+                const tp = parseFloat(document.getElementById('throughput-result').textContent);
+                localStorage.setItem('calculationResult', JSON.stringify({
+                    requestId: req.requestId,
+                    status: 'completed',
+                    achievableRate: Number.isFinite(tp) ? tp : 0
+                }));
+            } catch (e) {
+                localStorage.setItem('calculationResult', JSON.stringify({ status: 'error', message: String(e && e.message ? e.message : e) }));
+            }
+        }
+
         // 页面启动
         document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('mode') === 'calculate' && params.get('requestKey')) {
+                fulfillThroughputCalculationRequest(params.get('requestKey'));
+                return;
+            }
+
             updateTimelines();
             bindCalcEvents();
             updateResults();
