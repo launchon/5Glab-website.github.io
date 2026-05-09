@@ -758,65 +758,48 @@
         function getPathLoss(d,h,f) { return -(69.55+26.16*Math.log10(f)-13.82*Math.log10(h)-6.87+(44.9-6.55*Math.log10(h))*Math.log10(d)); }
         function getAntennaGain(az,tilt) { let ag = -Math.min(12*Math.pow(az/65,2),30); let tg = -Math.min(12*Math.pow((tilt-90)/65,2),30); return Math.min(ag+tg,30); }
         function calculateReceivedPower(ux,uy,st) { if(!st.antennaConfig) return null; let dx=ux-(st.position.x+60), dy=uy-(st.position.y+60), dist=Math.sqrt(dx*dx+dy*dy)*10/1000; let az=Math.atan2(dy,dx)*180/Math.PI; if(az<0) az+=360; let tiltAngle=Math.atan2(st.antennaConfig.height-1.5,dist*1000)*180/Math.PI; let pl=Math.max(getPathLoss(dist,st.antennaConfig.height,1000),70); let gains=[getAntennaGain(Math.abs(az-st.antennaConfig.aziSector1), tiltAngle+st.antennaConfig.tiltSector1), getAntennaGain(Math.abs(az-st.antennaConfig.aziSector2), tiltAngle+st.antennaConfig.tiltSector2), getAntennaGain(Math.abs(az-st.antennaConfig.aziSector3), tiltAngle+st.antennaConfig.tiltSector3)]; let maxGain=Math.max(...gains); return 43+maxGain-pl; }
-        function estimateSINR(userX, userY, stationX, stationY) {
+        /**
+         * 计算需求点相对服务基站的 SINR（dB）。mainStationId 优先，避免像素坐标严格相等比较失败。
+         * 干扰：stationsConfig 中除主站外的其它基站（原 getInterferingStationPositions 未实现会导致始终 catch 返回 0）。
+         */
+        function estimateSINR(userX, userY, stationX, stationY, mainStationId) {
             try {
-                // 获取基站配置
                 const stationsConfig = JSON.parse(localStorage.getItem('stationsConfig') || '[]');
-                const mainStation = stationsConfig.find(st =>
-                    st.position.x === stationX - 60 && st.position.y === stationY - 60);
+                const px = stationX - 60;
+                const py = stationY - 60;
+                const mainStation = (mainStationId && stationsConfig.find(st => st.id === mainStationId))
+                    || stationsConfig.find(st => st.position
+                        && Math.abs(st.position.x - px) < 0.5
+                        && Math.abs(st.position.y - py) < 0.5);
 
                 if (!mainStation || !mainStation.antennaConfig) {
-
                     console.error('基站配置未找到');
                     return 0;
                 }
 
-                // 计算主基站的接收功率 单位dBm
                 const Pr = calculateReceivedPower(userX, userY, mainStation);
-
                 if (Pr === null) return 0;
 
-                // 计算干扰基站的总干扰功率
-                const interferingStations = getInterferingStationPositions();
                 let totalInterference = 0;
-
-                interferingStations.forEach(station => {
-                    // 创建虚拟干扰基站配置
-                    const interferingStation = {
-                        position: {
-                            x: station.x * 1000 + stationX - 60,
-                            y: station.y * 1000 + stationY - 60
-                        },
-                        antennaConfig: { ...mainStation.antennaConfig }
-                    };
-
-                    const Pi = calculateReceivedPower(userX, userY, interferingStation);
-
-                    if (Pi !== null) {
-                        totalInterference += Math.pow(10, Pi / 10);
-                    }
-
+                stationsConfig.forEach(st => {
+                    if (!st.position || st.id === mainStation.id) return;
+                    if (!st.antennaConfig) return;
+                    const Pi = calculateReceivedPower(userX, userY, st);
+                    if (Pi !== null) totalInterference += Math.pow(10, Pi / 10);
                 });
-                totalInterference = totalInterference * 0.001;
+                totalInterference *= 0.001;
 
-                // 计算SINR (dB)
-                const noise = 1e-12; // 假设噪声功率为-90dBm
-
-                const SINR = 10 * Math.log10(Math.pow(10, Pr / 10) / (totalInterference + noise));//单位dBm
-
-
-
-                console.log("SINRRR", SINR);
-                console.log("Pr_second", Pr);
-                console.log("Math.pow(10, Pr / 10)", Math.pow(10, Pr / 10));
-                console.log("totalInterference", totalInterference);
-                console.log("noise", noise);
-                // 限制SINR的范围
-
-                return Math.min(Math.max(SINR, -10), 30); // 限制SINR在-10dB到30dB之间
+                const noise = 1e-12;
+                const signalLin = Math.pow(10, Pr / 10);
+                const denom = totalInterference + noise;
+                if (!Number.isFinite(signalLin) || denom <= 0 || !Number.isFinite(denom)) return 0;
+                const sinrLin = signalLin / denom;
+                if (sinrLin <= 0 || !Number.isFinite(sinrLin)) return 0;
+                const SINR = 10 * Math.log10(sinrLin);
+                return Math.min(Math.max(SINR, -10), 30);
             } catch (error) {
                 console.error('SINR计算错误:', error);
-                return 0; // 发生错误时返回默认值
+                return 0;
             }
         }
         async function analyzeDemandPoints() {
@@ -860,7 +843,7 @@
 
                         // 计算SINR
                         console.log(`计算需求点 ${dp.id} 的 SINR:`);
-                        const sinr = estimateSINR(dp.x, dp.y, nearestStation.position.x + 60, nearestStation.position.y + 60);
+                        const sinr = estimateSINR(dp.x, dp.y, nearestStation.position.x + 60, nearestStation.position.y + 60, nearestStation.id);
 
 
                         // 创建并等待上行计算完成
